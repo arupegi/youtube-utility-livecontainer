@@ -10,6 +10,25 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: 14) {
 
+
+                    card("表示テーマ", icon: "circle.lefthalf.filled") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("画面の明るさ")
+                                .font(.body.weight(.medium))
+
+                            Picker("表示テーマ", selection: $settings.appearanceMode) {
+                                Text("自動").tag("system")
+                                Text("ライト").tag("light")
+                                Text("ダーク").tag("dark")
+                            }
+                            .pickerStyle(.segmented)
+
+                            Text("iPadOSに合わせるか、ライト / ダークを固定できます。")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     card("テーマカラー", icon: "paintpalette.fill") {
                         ColorPicker(
                             "カラーを選択",
@@ -80,6 +99,18 @@ struct SettingsView: View {
                             "画像通信をブロック",
                             detail: "ytimg.comなどへの画像取得を抑えて通信量を減らす",
                             isOn: $settings.blockImages
+                        )
+                        Divider()
+                        settingToggle(
+                            "Mix / ミックスリストを隠す",
+                            detail: "自動生成Mixやミックス再生リストを一覧から除外",
+                            isOn: $settings.hideMixes
+                        )
+                        Divider()
+                        settingToggle(
+                            "Shortsを隠す",
+                            detail: "Shorts棚・Shortsカード・Shortsタブを非表示",
+                            isOn: $settings.hideShorts
                         )
                     }
 

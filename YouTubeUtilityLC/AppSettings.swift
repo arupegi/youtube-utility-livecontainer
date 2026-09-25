@@ -2,9 +2,12 @@ import Foundation
 import SwiftUI
 
 final class AppSettings: ObservableObject {
+    @AppStorage("hideShorts") var hideShorts = true
+    @AppStorage("hideMixes") var hideMixes = true
     @AppStorage("blockImages") var blockImages = true
     @AppStorage("textListMode") var textListMode = true
     @AppStorage("themeColorHex") var themeColorHex = "#FF3B30"
+    @AppStorage("appearanceMode") var appearanceMode = "system"
     @AppStorage("adBlock") var adBlock = true
     @AppStorage("audioOnly") var audioOnly = false
     @AppStorage("hideComments") var hideComments = true
@@ -25,4 +28,17 @@ final class AppSettings: ObservableObject {
             set: { self.themeColorHex = $0.toHex() }
         )
     }
+
+
+    var preferredColorScheme: ColorScheme? {
+        switch appearanceMode {
+        case "light":
+            return .light
+        case "dark":
+            return .dark
+        default:
+            return nil
+        }
+    }
+
 }

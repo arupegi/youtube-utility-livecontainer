@@ -13,6 +13,7 @@ struct YouTubeUtilityLCApp: App {
             ContentView()
                 .environmentObject(settings)
                 .tint(settings.themeColor)
+                .preferredColorScheme(settings.preferredColorScheme)
         }
     }
 }

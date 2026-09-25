@@ -7,9 +7,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.arupegi.youtubeutilitylc</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.5</string>
+    <string>0.7</string>
     <key>CFBundleVersion</key>
-    <string>5</string>
+    <string>7</string>
     <key>UILaunchScreen</key>
     <dict/>
     <key>UIRequiresFullScreen</key>

@@ -45,104 +45,161 @@ struct WebView: UIViewRepresentable {
         } catch {}
       }
 
+
       function listModeCSS() {
         return `
-          /* Search / home / channel video cards -> text list */
+          /* ===== Text-first list mode ===== */
+
+          /* Search results and normal video cards */
           ytd-video-renderer,
-          ytd-rich-item-renderer,
-          ytd-grid-video-renderer,
           ytd-compact-video-renderer,
-          ytd-playlist-video-renderer {
+          ytd-playlist-video-renderer,
+          ytd-grid-video-renderer,
+          ytd-rich-item-renderer,
+          ytd-rich-grid-media {
             display: block !important;
-            margin: 0 0 10px 0 !important;
-            padding: 12px 14px !important;
-            background: rgba(127,127,127,0.08) !important;
-            border-radius: 14px !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 0 8px 0 !important;
+            padding: 11px 14px !important;
+            box-sizing: border-box !important;
+            background: rgba(127,127,127,0.075) !important;
+            border-radius: 13px !important;
             min-height: 0 !important;
           }
 
-          ytd-rich-grid-renderer #contents,
-          ytd-section-list-renderer #contents,
-          ytd-two-column-browse-results-renderer #primary {
+          /* Desktop channel page / Videos tab rich grid */
+          ytd-rich-grid-renderer,
+          ytd-rich-grid-row,
+          #contents.ytd-rich-grid-renderer,
+          ytd-two-column-browse-results-renderer #primary,
+          ytd-section-list-renderer #contents {
             display: block !important;
+            width: 100% !important;
+            max-width: none !important;
           }
 
+          ytd-rich-grid-renderer #contents {
+            margin: 0 !important;
+            padding: 8px 12px !important;
+          }
+
+          ytd-rich-grid-row #contents {
+            display: block !important;
+            width: 100% !important;
+          }
+
+          ytd-rich-item-renderer {
+            --ytd-rich-grid-item-max-width: none !important;
+            --ytd-rich-grid-item-min-width: 0 !important;
+          }
+
+          /* Remove thumbnail columns entirely instead of leaving blank space */
           ytd-thumbnail,
           yt-image,
           img.yt-core-image,
           .yt-core-image,
+          #thumbnail,
+          #thumbnail-container,
+          .thumbnail-container,
+          .ytd-thumbnail,
           .iv-player-content,
           .ytp-cued-thumbnail-overlay-image {
             display: none !important;
             visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
           ytd-video-renderer #dismissible,
-          ytd-rich-item-renderer #content,
           ytd-grid-video-renderer #dismissible,
           ytd-compact-video-renderer #dismissible,
-          ytd-playlist-video-renderer #content {
+          ytd-playlist-video-renderer #content,
+          ytd-rich-item-renderer #content,
+          ytd-rich-grid-media #content {
             display: block !important;
+            width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
           }
 
           ytd-video-renderer #details,
-          ytd-rich-item-renderer #details,
           ytd-grid-video-renderer #details,
           ytd-compact-video-renderer #details,
-          ytd-playlist-video-renderer #meta {
-            margin: 0 !important;
+          ytd-playlist-video-renderer #meta,
+          ytd-rich-grid-media #details,
+          ytd-rich-item-renderer #details {
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
             min-width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          #video-title,
+          a#video-title,
+          #video-title-link {
+            display: block !important;
+            font-size: 15px !important;
+            line-height: 1.38 !important;
+            font-weight: 650 !important;
+            margin: 0 0 5px 0 !important;
+            white-space: normal !important;
+            max-height: none !important;
+            overflow: visible !important;
           }
 
           ytd-video-meta-block,
-          #video-title,
-          #channel-name,
+          #metadata,
           #metadata-line,
-          #byline-container {
-            max-width: 100% !important;
-          }
-
-          #video-title,
-          a#video-title {
-            font-size: 15px !important;
-            line-height: 1.35 !important;
-            font-weight: 600 !important;
-            margin: 0 0 6px 0 !important;
-            white-space: normal !important;
-          }
-
-          #metadata-line,
-          #metadata-line span,
           #byline-container,
           #channel-name,
           ytd-channel-name,
           ytd-channel-name a {
+            max-width: 100% !important;
             font-size: 12px !important;
             line-height: 1.45 !important;
             color: rgba(127,127,127,0.95) !important;
           }
 
+          /* remove visual clutter from cards */
           ytd-badge-supported-renderer,
           ytd-menu-renderer,
           #menu,
           #buttons,
           .metadata-snippet-container,
           ytd-thumbnail-overlay-time-status-renderer,
-          ytd-thumbnail-overlay-resume-playback-renderer,
-          .badge-style-type-live-now-alternate,
-          .ytd-thumbnail-overlay-time-status-renderer {
+          ytd-thumbnail-overlay-resume-playback-renderer {
             display: none !important;
           }
 
-          ytd-rich-grid-media,
-          ytd-video-renderer,
-          ytd-grid-video-renderer {
-            box-shadow: none !important;
+          /* Channel page header remains usable but tighter */
+          ytd-c4-tabbed-header-renderer,
+          ytd-page-header-renderer,
+          #channel-header-container {
+            margin-bottom: 6px !important;
           }
 
-          /* tighter page chrome on list pages */
+          /* Keep horizontal channel tabs scrollable */
+          #tabsContent,
+          yt-tab-shape,
+          tp-yt-paper-tab {
+            min-height: 38px !important;
+          }
+
+          /* Avoid grid gaps on desktop */
+          ytd-rich-grid-renderer #contents > *,
+          ytd-rich-grid-row #contents > * {
+            width: 100% !important;
+            max-width: none !important;
+          }
+
+          /* Search filter bar stays available */
           #chips-wrapper,
           ytd-feed-filter-chip-bar-renderer {
             position: sticky !important;
@@ -153,7 +210,50 @@ struct WebView: UIViewRepresentable {
         `;
       }
 
+      function cleanupSpecialShelves(c) {
+        if (c.hideShorts) {
+          document.querySelectorAll(`
+            ytd-reel-shelf-renderer,
+            ytd-rich-shelf-renderer[is-shorts],
+            ytd-rich-section-renderer:has(ytd-reel-shelf-renderer),
+            ytd-video-renderer a[href*="/shorts/"],
+            ytd-rich-item-renderer a[href*="/shorts/"],
+            ytd-grid-video-renderer a[href*="/shorts/"],
+            ytd-guide-entry-renderer a[href="/shorts"],
+            yt-tab-shape[tab-title*="Shorts"],
+            tp-yt-paper-tab:has(a[href*="/shorts"])
+          `).forEach(el => {
+            const card = el.closest('ytd-rich-item-renderer,ytd-grid-video-renderer,ytd-video-renderer,ytd-rich-section-renderer,ytd-reel-shelf-renderer,yt-tab-shape,tp-yt-paper-tab') || el;
+            card.style.setProperty('display', 'none', 'important');
+          });
+        }
+
+        if (c.hideMixes) {
+          document.querySelectorAll(`
+            ytd-radio-renderer,
+            ytd-compact-radio-renderer,
+            ytd-playlist-renderer,
+            ytd-compact-playlist-renderer,
+            ytd-rich-item-renderer,
+            ytd-grid-playlist-renderer
+          `).forEach(el => {
+            const txt = (el.innerText || '').toLowerCase();
+            const hrefs = Array.from(el.querySelectorAll('a')).map(a => a.href || '').join(' ');
+            const isMix =
+              txt.includes('mix') ||
+              txt.includes('ミックス') ||
+              hrefs.includes('list=RD') ||
+              hrefs.includes('start_radio=1');
+
+            if (isMix) {
+              el.style.setProperty('display', 'none', 'important');
+            }
+          });
+        }
+      }
+
       window.__ytuApply = (c) => {
+        window.__ytuLastConfig = c;
         let r = [];
 
         if (c.hideComments) r.push('#comments,ytd-comments,ytd-item-section-renderer[target-id="comments-section"]{display:none!important}');
@@ -164,7 +264,19 @@ struct WebView: UIViewRepresentable {
         if (c.audioOnly) r.push('video{opacity:0!important;background:#000!important}');
         if (c.textListMode) r.push(listModeCSS());
 
+        if (c.hideShorts) {
+          r.push(`
+            ytd-reel-shelf-renderer,
+            ytd-rich-shelf-renderer[is-shorts],
+            a[href="/shorts"],
+            ytd-guide-entry-renderer a[href="/shorts"] {
+              display:none!important;
+            }
+          `);
+        }
+
         style('__ytu_style', r.join('\n'));
+        cleanupSpecialShelves(c);
 
         document.querySelectorAll('video').forEach(v => {
           try { v.disablePictureInPicture = !!c.audioOnly; } catch {}
@@ -222,6 +334,10 @@ struct WebView: UIViewRepresentable {
 
           window.webkit?.messageHandlers?.traffic?.postMessage(o);
           sendPlayerState();
+
+          if (window.__ytuLastConfig) {
+            cleanupSpecialShelves(window.__ytuLastConfig);
+          }
         } catch {}
       }, 2000);
     })();

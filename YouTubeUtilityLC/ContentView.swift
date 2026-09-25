@@ -127,66 +127,73 @@ struct ContentView: View {
         }
     }
 
+
     private var bottomBar: some View {
-        HStack(spacing: 8) {
-            Button {
-                settings.audioOnly.toggle()
-                browser.reload()
-            } label: {
-                BottomBarItem(
-                    systemName: settings.audioOnly ? "waveform.circle.fill" : "waveform.circle",
-                    title: settings.audioOnly ? "音声のみ" : "通常",
-                    emphasized: settings.audioOnly
-                )
-            }
-
-            Spacer(minLength: 2)
-
-            Button {
-                settings.textListMode.toggle()
-                if settings.textListMode {
-                    settings.hideThumbnails = true
-                    settings.blockImages = true
+        HStack {
+            HStack(spacing: 10) {
+                Button {
+                    settings.audioOnly.toggle()
+                    browser.reload()
+                } label: {
+                    BottomBarItem(
+                        systemName: settings.audioOnly ? "waveform.circle.fill" : "waveform.circle",
+                        title: settings.audioOnly ? "音声のみ" : "通常",
+                        emphasized: settings.audioOnly
+                    )
                 }
-                browser.reload()
-            } label: {
-                BottomBarItem(
-                    systemName: settings.textListMode ? "text.justify" : "square.grid.2x2",
-                    title: settings.textListMode ? "一覧" : "標準",
-                    emphasized: settings.textListMode
-                )
+
+                Button {
+                    settings.textListMode.toggle()
+                    if settings.textListMode {
+                        settings.hideThumbnails = true
+                        settings.blockImages = true
+                    }
+                    browser.reload()
+                } label: {
+                    BottomBarItem(
+                        systemName: settings.textListMode ? "text.justify" : "square.grid.2x2",
+                        title: settings.textListMode ? "一覧" : "標準",
+                        emphasized: settings.textListMode
+                    )
+                }
+
+                Button {
+                    showTraffic = true
+                } label: {
+                    BottomBarItem(
+                        systemName: "chart.bar.fill",
+                        title: shortBytes(browser.traffic.totalBytes),
+                        emphasized: false
+                    )
+                }
+
+                Button {
+                    showSettings = true
+                } label: {
+                    BottomBarItem(
+                        systemName: "slider.horizontal.3",
+                        title: "設定",
+                        emphasized: false
+                    )
+                }
             }
-
-            Spacer(minLength: 2)
-
-            Button {
-                showTraffic = true
-            } label: {
-                BottomBarItem(
-                    systemName: "chart.bar.fill",
-                    title: shortBytes(browser.traffic.totalBytes),
-                    emphasized: false
-                )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(.primary.opacity(0.08), lineWidth: 1)
             }
-
-            Spacer(minLength: 2)
-
-            Button {
-                showSettings = true
-            } label: {
-                BottomBarItem(
-                    systemName: "slider.horizontal.3",
-                    title: "設定",
-                    emphasized: false
-                )
-            }
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 2)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 9)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
+        .background(Color.clear)
         .overlay(alignment: .top) {
-            Divider().opacity(0.4)
+            Divider().opacity(0.18)
         }
     }
 
@@ -240,11 +247,11 @@ private struct BottomBarItem: View {
             Image(systemName: systemName)
                 .font(.system(size: 18, weight: .semibold))
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 10, weight: .medium))
                 .lineLimit(1)
         }
         .foregroundStyle(emphasized ? settings.themeColor : Color.primary)
-        .frame(minWidth: 72)
+        .frame(width: 72, height: 42)
         .contentShape(Rectangle())
     }
 }
