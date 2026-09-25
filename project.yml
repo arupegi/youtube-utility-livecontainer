@@ -3,13 +3,13 @@ options:
   bundleIdPrefix: com.arupegi
 settings:
   base:
-    IPHONEOS_DEPLOYMENT_TARGET: 15.0
+    IPHONEOS_DEPLOYMENT_TARGET: 16.0
     SWIFT_VERSION: 5.0
 targets:
   YouTubeUtilityLC:
     type: application
     platform: iOS
-    deploymentTarget: "15.0"
+    deploymentTarget: "16.0"
     sources:
       - YouTubeUtilityLC
     info:
