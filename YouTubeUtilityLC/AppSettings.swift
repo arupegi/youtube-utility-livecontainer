@@ -2,6 +2,9 @@ import Foundation
 import SwiftUI
 
 final class AppSettings: ObservableObject {
+    @AppStorage("blockImages") var blockImages = true
+    @AppStorage("textListMode") var textListMode = true
+    @AppStorage("themeColorHex") var themeColorHex = "#FF3B30"
     @AppStorage("adBlock") var adBlock = true
     @AppStorage("audioOnly") var audioOnly = false
     @AppStorage("hideComments") var hideComments = true
@@ -10,4 +13,16 @@ final class AppSettings: ObservableObject {
     @AppStorage("hideThumbnails") var hideThumbnails = false
     @AppStorage("blockSeekPreview") var blockSeekPreview = true
     @AppStorage("downloadEndpoint") var downloadEndpoint = ""
+
+
+    var themeColor: Color {
+        Color(hex: themeColorHex)
+    }
+
+    var themeColorBinding: Binding<Color> {
+        Binding(
+            get: { Color(hex: self.themeColorHex) },
+            set: { self.themeColorHex = $0.toHex() }
+        )
+    }
 }

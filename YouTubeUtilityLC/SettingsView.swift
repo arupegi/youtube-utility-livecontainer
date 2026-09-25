@@ -7,35 +7,201 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("ブロック") {
-                    Toggle("広告ブロック", isOn:$settings.adBlock)
-                    Toggle("音声のみ（映像通信ブロック）", isOn:$settings.audioOnly)
-                    Toggle("シーク画像をブロック", isOn:$settings.blockSeekPreview)
+            ScrollView {
+                VStack(spacing: 14) {
+
+                    card("テーマカラー", icon: "paintpalette.fill") {
+                        ColorPicker(
+                            "カラーを選択",
+                            selection: settings.themeColorBinding,
+                            supportsOpacity: false
+                        )
+                        .font(.body.weight(.medium))
+
+                        HStack(spacing: 10) {
+                            ForEach([
+                                "#FF3B30",
+                                "#FF9500",
+                                "#FFD60A",
+                                "#34C759",
+                                "#00C7BE",
+                                "#007AFF",
+                                "#5856D6",
+                                "#AF52DE",
+                                "#FF2D55"
+                            ], id: \.self) { hex in
+                                Button {
+                                    settings.themeColorHex = hex
+                                } label: {
+                                    Circle()
+                                        .fill(Color(hex: hex))
+                                        .frame(width: 28, height: 28)
+                                        .overlay {
+                                            if settings.themeColorHex.uppercased() == hex {
+                                                Image(systemName: "checkmark")
+                                                    .font(.caption.bold())
+                                                    .foregroundStyle(.white)
+                                            }
+                                        }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        HStack {
+                            Text(settings.themeColorHex.uppercased())
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+
+                            Spacer()
+
+                            Button("標準に戻す") {
+                                settings.themeColorHex = "#FF3B30"
+                            }
+                            .font(.caption)
+                        }
+                    }
+
+
+                    card("一覧表示", icon: "text.justify") {
+                        settingToggle(
+                            "テキスト一覧モード",
+                            detail: "検索結果やチャンネルページの動画一覧を、画像なしの見やすい縦リストにする",
+                            isOn: $settings.textListMode
+                        )
+                        Divider()
+                        settingToggle(
+                            "画像を完全に隠す",
+                            detail: "サムネイルやその他の画像を表示しない",
+                            isOn: $settings.hideThumbnails
+                        )
+                        Divider()
+                        settingToggle(
+                            "画像通信をブロック",
+                            detail: "ytimg.comなどへの画像取得を抑えて通信量を減らす",
+                            isOn: $settings.blockImages
+                        )
+                    }
+
+                    card("再生", icon: "play.circle.fill") {
+                        settingToggle(
+                            "音声のみ",
+                            detail: "映像通信をブロックして音声中心で再生",
+                            isOn: $settings.audioOnly
+                        )
+                        Divider()
+                        settingToggle(
+                            "広告ブロック",
+                            detail: "広告系リクエストを遮断",
+                            isOn: $settings.adBlock
+                        )
+                        Divider()
+                        settingToggle(
+                            "シーク画像をブロック",
+                            detail: "シーク時のプレビュー画像を取得しない",
+                            isOn: $settings.blockSeekPreview
+                        )
+                    }
+
+                    card("表示を軽くする", icon: "rectangle.compress.vertical") {
+                        settingToggle("コメントを隠す", detail: nil, isOn: $settings.hideComments)
+                        Divider()
+                        settingToggle("ライブチャットを隠す", detail: nil, isOn: $settings.hideChat)
+                        Divider()
+                        settingToggle("関連動画を隠す", detail: nil, isOn: $settings.hideRelated)
+                        Divider()
+                        settingToggle("サムネイルを隠す", detail: nil, isOn: $settings.hideThumbnails)
+                    }
+
+                    card("ダウンロードAPI", icon: "arrow.down.circle.fill") {
+                        TextField("https://example.com/api", text: $settings.downloadEndpoint)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .font(.system(.body, design: .monospaced))
+                            .padding(11)
+                            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 11))
+
+                        Button {
+                            openDownload()
+                        } label: {
+                            Label("現在のページをAPIへ送る", systemImage: "arrow.up.forward.app")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(settings.downloadEndpoint.isEmpty)
+
+                        Text("自分のコンテンツ、または保存が許可されているメディア向けです。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        browser.reload()
+                        dismiss()
+                    } label: {
+                        Label("設定を適用して再読み込み", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.bordered)
                 }
-                Section("表示") {
-                    Toggle("コメント非表示", isOn:$settings.hideComments)
-                    Toggle("ライブチャット非表示", isOn:$settings.hideChat)
-                    Toggle("関連動画非表示", isOn:$settings.hideRelated)
-                    Toggle("サムネイル非表示", isOn:$settings.hideThumbnails)
-                }
-                Section("ダウンロード") {
-                    TextField("自前のダウンロードAPI", text:$settings.downloadEndpoint)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    Button("現在のページをAPIへ送る") { openDownload() }
-                    Text("自分のコンテンツや保存が許可されたメディア向けです。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-                Button("設定を適用して再読み込み") { browser.reload(); dismiss() }
+                .padding(16)
             }
-            .navigationTitle("設定").navigationBarTitleDisplayMode(.inline)
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("設定")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完了") { dismiss() }
+                }
+            }
         }
     }
-    private func openDownload(){
+
+    private func card<Content: View>(
+        _ title: String,
+        icon: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: icon)
+                .font(.headline)
+
+            content()
+        }
+        .padding(15)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func settingToggle(
+        _ title: String,
+        detail: String?,
+        isOn: Binding<Bool>
+    ) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.body.weight(.medium))
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .tint(settings.themeColor)
+    }
+
+    private func openDownload() {
         guard !settings.downloadEndpoint.isEmpty,
-              var c=URLComponents(string:settings.downloadEndpoint) else { return }
-        var q=c.queryItems ?? []
-        q.append(URLQueryItem(name:"url", value:browser.currentURL)); c.queryItems=q
-        if let u=c.url { UIApplication.shared.open(u) }
+              var c = URLComponents(string: settings.downloadEndpoint) else { return }
+
+        var q = c.queryItems ?? []
+        q.append(URLQueryItem(name: "url", value: browser.currentURL))
+        c.queryItems = q
+
+        if let u = c.url {
+            UIApplication.shared.open(u)
+        }
     }
 }
