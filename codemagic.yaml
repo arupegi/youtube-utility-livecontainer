@@ -1,0 +1,34 @@
+workflows:
+  livecontainer-unsigned:
+    name: YouTube Utility LC - Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    scripts:
+      - name: Install XcodeGen
+        script: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+      - name: Generate Xcode project
+        script: |
+          xcodegen generate
+      - name: Build unsigned app
+        script: |
+          rm -rf "$CM_BUILD_DIR/build"
+          xcodebuild build \
+            -project "$CM_BUILD_DIR/YouTubeUtilityLC.xcodeproj" \
+            -scheme "YouTubeUtilityLC" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$CM_BUILD_DIR/build/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+      - name: Package IPA
+        script: |
+          APP="$CM_BUILD_DIR/build/DerivedData/Build/Products/Release-iphoneos/YouTubeUtilityLC.app"
+          test -d "$APP"
+          rm -rf "$CM_BUILD_DIR/build/Payload"
+          mkdir -p "$CM_BUILD_DIR/build/Payload"
+          cp -R "$APP" "$CM_BUILD_DIR/build/Payload/"
+          cd "$CM_BUILD_DIR/build"
+          zip -qry "YouTubeUtilityLC-unsigned.ipa" Payload
+    artifacts:
+      - build/YouTubeUtilityLC-unsigned.ipa

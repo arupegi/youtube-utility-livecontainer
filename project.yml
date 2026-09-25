@@ -1,0 +1,20 @@
+name: YouTubeUtilityLC
+options:
+  bundleIdPrefix: com.arupegi
+settings:
+  base:
+    IPHONEOS_DEPLOYMENT_TARGET: 15.0
+    SWIFT_VERSION: 5.0
+targets:
+  YouTubeUtilityLC:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - YouTubeUtilityLC
+    info:
+      path: YouTubeUtilityLC/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.arupegi.youtubeutilitylc
+        TARGETED_DEVICE_FAMILY: "1,2"
