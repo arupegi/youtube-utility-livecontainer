@@ -46,6 +46,227 @@ struct WebView: UIViewRepresentable {
       }
 
 
+
+      function youtubeThemeCSS(mode) {
+        const dark = `
+          html, body,
+          ytd-app,
+          #page-manager,
+          #content,
+          #primary,
+          #secondary,
+          ytd-browse,
+          ytd-search,
+          ytd-watch-flexy,
+          ytd-two-column-browse-results-renderer,
+          ytd-two-column-search-results-renderer,
+          ytd-section-list-renderer,
+          ytd-rich-grid-renderer,
+          tp-yt-app-drawer {
+            background: #0b0b0c !important;
+            color: #f5f5f7 !important;
+          }
+
+          /* top bar / masthead */
+          ytd-masthead,
+          #masthead-container,
+          #container.ytd-masthead,
+          #background.ytd-masthead {
+            background: rgba(18,18,20,0.96) !important;
+            color: #f5f5f7 !important;
+            border-color: rgba(255,255,255,0.08) !important;
+          }
+
+          /* search box */
+          ytd-searchbox,
+          #container.ytd-searchbox,
+          #search-form,
+          #search-input,
+          input#search,
+          input.ytd-searchbox {
+            background: #1c1c1e !important;
+            color: #f5f5f7 !important;
+            border-color: rgba(255,255,255,0.12) !important;
+          }
+
+          #search-icon-legacy,
+          ytd-searchbox button,
+          tp-yt-paper-icon-button {
+            background: #2a2a2d !important;
+            color: #f5f5f7 !important;
+          }
+
+          /* text */
+          #video-title,
+          a#video-title,
+          #video-title-link,
+          #channel-name,
+          ytd-channel-name,
+          ytd-channel-name a,
+          #metadata-line,
+          #metadata-line span,
+          #byline-container,
+          #description,
+          yt-formatted-string,
+          h1, h2, h3 {
+            color: #f5f5f7 !important;
+          }
+
+          #metadata-line,
+          #metadata-line span,
+          #byline-container,
+          #description,
+          #subtitle,
+          .metadata-snippet-text,
+          #owner-sub-count {
+            color: #a1a1a6 !important;
+          }
+
+          /* cards / panels */
+          ytd-video-renderer,
+          ytd-rich-item-renderer,
+          ytd-rich-grid-media,
+          ytd-grid-video-renderer,
+          ytd-compact-video-renderer,
+          ytd-playlist-video-renderer,
+          ytd-comment-thread-renderer,
+          ytd-comments,
+          ytd-engagement-panel-section-list-renderer,
+          ytd-menu-popup-renderer,
+          tp-yt-paper-dialog,
+          ytd-popup-container,
+          yt-sheet-view-model {
+            background: #141416 !important;
+            color: #f5f5f7 !important;
+            border-color: rgba(255,255,255,0.08) !important;
+          }
+
+          /* channel header / tabs */
+          ytd-c4-tabbed-header-renderer,
+          ytd-page-header-renderer,
+          #channel-header-container,
+          #tabs-container,
+          #tabsContent,
+          yt-tab-shape,
+          tp-yt-paper-tab {
+            background: #0b0b0c !important;
+            color: #f5f5f7 !important;
+          }
+
+          /* chips / filter pills */
+          yt-chip-cloud-chip-renderer,
+          ytd-feed-filter-chip-bar-renderer,
+          yt-chip-cloud-renderer,
+          .ytChipShapeChip {
+            background: #1f1f22 !important;
+            color: #f5f5f7 !important;
+            border-color: rgba(255,255,255,0.08) !important;
+          }
+
+          /* player surrounding area */
+          #columns,
+          #below,
+          #info,
+          #meta,
+          ytd-watch-metadata {
+            background: #0b0b0c !important;
+            color: #f5f5f7 !important;
+          }
+
+          /* buttons */
+          yt-button-shape button,
+          ytd-button-renderer a,
+          ytd-button-renderer button,
+          .yt-spec-button-shape-next {
+            background-color: #242427 !important;
+            color: #f5f5f7 !important;
+          }
+
+          /* dividers */
+          #separator,
+          tp-yt-paper-listbox,
+          ytd-horizontal-card-list-renderer,
+          ytd-item-section-renderer {
+            border-color: rgba(255,255,255,0.08) !important;
+          }
+
+          /* scrollbars */
+          ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+          }
+          ::-webkit-scrollbar-track {
+            background: #0b0b0c;
+          }
+          ::-webkit-scrollbar-thumb {
+            background: #3a3a3c;
+            border-radius: 999px;
+            border: 2px solid #0b0b0c;
+          }
+
+          /* remove light flashes */
+          html {
+            color-scheme: dark !important;
+            background-color: #0b0b0c !important;
+          }
+        `;
+
+        const light = `
+          html, body,
+          ytd-app,
+          #page-manager,
+          #content,
+          #primary,
+          #secondary,
+          ytd-browse,
+          ytd-search,
+          ytd-watch-flexy,
+          ytd-two-column-browse-results-renderer,
+          ytd-two-column-search-results-renderer,
+          ytd-section-list-renderer,
+          ytd-rich-grid-renderer {
+            background: #ffffff !important;
+            color: #111111 !important;
+          }
+
+          html {
+            color-scheme: light !important;
+            background-color: #ffffff !important;
+          }
+
+          ytd-masthead,
+          #masthead-container,
+          #container.ytd-masthead,
+          #background.ytd-masthead {
+            background: rgba(255,255,255,0.96) !important;
+            color: #111111 !important;
+          }
+
+          ytd-searchbox,
+          #container.ytd-searchbox,
+          #search-form,
+          #search-input,
+          input#search,
+          input.ytd-searchbox {
+            background: #f5f5f7 !important;
+            color: #111111 !important;
+            border-color: rgba(0,0,0,0.12) !important;
+          }
+        `;
+
+        if (mode === 'dark') return dark;
+        if (mode === 'light') return light;
+
+        return `
+          @media (prefers-color-scheme: dark) {
+            ${dark}
+          }
+          @media (prefers-color-scheme: light) {
+            ${light}
+          }
+        `;
+      }
+
       function listModeCSS() {
         return `
           /* ===== Text-first list mode ===== */
@@ -263,6 +484,7 @@ struct WebView: UIViewRepresentable {
         if (c.blockSeekPreview) r.push('.ytp-tooltip-bg,.ytp-tooltip-text-wrapper,.ytp-storyboard-framepreview,.ytp-preview{display:none!important}');
         if (c.audioOnly) r.push('video{opacity:0!important;background:#000!important}');
         if (c.textListMode) r.push(listModeCSS());
+        if (c.syncYouTubeTheme) r.push(youtubeThemeCSS(c.appearanceMode || 'system'));
 
         if (c.hideShorts) {
           r.push(`

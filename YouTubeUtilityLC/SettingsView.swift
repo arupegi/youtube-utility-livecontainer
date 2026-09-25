@@ -26,6 +26,14 @@ struct SettingsView: View {
                             Text("iPadOSに合わせるか、ライト / ダークを固定できます。")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+
+                            Divider()
+
+                            settingToggle(
+                                "YouTube画面にも反映",
+                                detail: "YouTubeサイト側の背景・検索欄・一覧・チャンネル画面も同じテーマにする",
+                                isOn: $settings.syncYouTubeTheme
+                            )
                         }
                     }
 

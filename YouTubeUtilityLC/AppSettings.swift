@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 final class AppSettings: ObservableObject {
+    @AppStorage("syncYouTubeTheme") var syncYouTubeTheme = true
     @AppStorage("hideShorts") var hideShorts = true
     @AppStorage("hideMixes") var hideMixes = true
     @AppStorage("blockImages") var blockImages = true
