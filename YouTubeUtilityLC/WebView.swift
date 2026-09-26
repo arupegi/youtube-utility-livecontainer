@@ -309,7 +309,7 @@ struct WebView: UIViewRepresentable {
             .ytp-storyboard-framepreview,.ytp-preview{display:none!important;}`;
         }
 
-        if (cfg.audioOnly && !cfg.miniPlayer) {
+        if (cfg.audioOnly) {
           css += `video{opacity:0!important;background:#000!important;}`;
         }
 
@@ -531,42 +531,6 @@ struct WebView: UIViewRepresentable {
         } catch {}
       }
 
-      function applyMiniPlayer() {
-        const player = document.querySelector('ytd-player');
-        if (!player) return;
-
-        if (!cfg.miniPlayer) {
-          player.classList.remove('__ytu_custom_mini');
-          return;
-        }
-
-        style('__ytu_mini_style', `
-          ytd-player.__ytu_custom_mini {
-            position:fixed!important;
-            right:18px!important;
-            bottom:18px!important;
-            width:min(360px,calc(100vw - 36px))!important;
-            aspect-ratio:16/9!important;
-            z-index:2147483000!important;
-            background:#000!important;
-            border-radius:14px!important;
-            overflow:hidden!important;
-            box-shadow:0 12px 42px rgba(0,0,0,.45)!important;
-          }
-          ytd-player.__ytu_custom_mini #movie_player,
-          ytd-player.__ytu_custom_mini video {
-            width:100%!important;
-            height:100%!important;
-          }
-          ytd-player.__ytu_custom_mini video {
-            object-fit:contain!important;
-            opacity:1!important;
-          }
-        `);
-
-        player.classList.add('__ytu_custom_mini');
-      }
-
       function hideMixFromNode(node) {
         if (!cfg.hideMixes || !node || node.nodeType !== 1) return;
 
@@ -616,7 +580,6 @@ struct WebView: UIViewRepresentable {
         applyTheme();
         bindVideo();
         installPlayerButtons();
-        applyMiniPlayer();
         hideMixFromNode(root);
       }
 
@@ -693,12 +656,6 @@ struct WebView: UIViewRepresentable {
           subtree: true
         });
       }
-
-      window.__ytuSetMiniPlayer = (enabled) => {
-        cfg.miniPlayer = !!enabled;
-        applyMiniPlayer();
-        return true;
-      };
 
       window.__ytuApply = (next) => {
         cfg = next || {};
@@ -868,7 +825,6 @@ struct WebView: UIViewRepresentable {
                 "hideShorts": settings.hideShorts,
                 "syncYouTubeTheme": settings.syncYouTubeTheme,
                 "appearanceMode": settings.appearanceMode,
-                "miniPlayer": model.isMiniPlayer,
                 "allowPiP": settings.allowPiP,
                 "allowFullscreen": settings.allowFullscreen
             ]

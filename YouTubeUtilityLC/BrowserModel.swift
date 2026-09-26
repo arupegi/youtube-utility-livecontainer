@@ -8,7 +8,6 @@ final class BrowserModel: ObservableObject {
     @Published var title = "YouTube"
     @Published var isLoading = false
     @Published var isPlaying = false
-    @Published var isMiniPlayer = false
     @Published var traffic = TrafficSnapshot()
 
     weak var webView: WKWebView?
@@ -37,22 +36,7 @@ final class BrowserModel: ObservableObject {
     func resetTraffic() { traffic = TrafficSnapshot() }
 
 
-    func setMiniPlayer(_ enabled: Bool) {
-        isMiniPlayer = enabled
-        let value = enabled ? "true" : "false"
-        webView?.evaluateJavaScript("""
-        (() => {
-          if (window.__ytuSetMiniPlayer) {
-            return window.__ytuSetMiniPlayer(\(value));
-          }
-          return false;
-        })()
-        """)
-    }
 
-    func toggleMiniPlayer() {
-        setMiniPlayer(!isMiniPlayer)
-    }
 
 
 

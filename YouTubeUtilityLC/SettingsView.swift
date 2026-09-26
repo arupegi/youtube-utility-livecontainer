@@ -107,35 +107,9 @@ struct SettingsView: View {
                             isOn: $settings.allowFullscreen
                         )
 
-                        Text("ONの場合はYouTubeプレイヤー上に専用ボタンを追加します。下バーの「表示」からもPiP / 全画面を開始できます。")
+                        Text("ONの場合はYouTubeプレイヤー上の専用ボタンに加えて、下バーにもPiP / 全画面ボタンを表示します。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                    }
-
-                    card("ミニプレイヤー", icon: "pip") {
-                        HStack(spacing: 12) {
-                            Image(systemName: browser.isMiniPlayer ? "pip.exit" : "pip.enter")
-                                .font(.title2)
-                                .foregroundStyle(settings.themeColor)
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(browser.isMiniPlayer ? "ミニプレイヤー使用中" : "ミニプレイヤー")
-                                    .font(.body.weight(.medium))
-                                Text("動画を右下に残したまま検索やチャンネル一覧を操作できます。")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer()
-
-                            Button(browser.isMiniPlayer ? "戻す" : "開始") {
-                                if !browser.isMiniPlayer {
-                                    settings.audioOnly = false
-                                }
-                                browser.toggleMiniPlayer()
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
                     }
 
                     card("一覧表示", icon: "text.justify") {

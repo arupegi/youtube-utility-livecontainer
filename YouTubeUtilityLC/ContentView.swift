@@ -162,19 +162,6 @@ struct ContentView: View {
                 }
 
                 Button {
-                    if !browser.isMiniPlayer {
-                        settings.audioOnly = false
-                    }
-                    browser.toggleMiniPlayer()
-                } label: {
-                    BottomBarItem(
-                        systemName: browser.isMiniPlayer ? "pip.exit" : "pip.enter",
-                        title: browser.isMiniPlayer ? "戻す" : "ミニ",
-                        emphasized: browser.isMiniPlayer
-                    )
-                }
-
-                Button {
                     showTraffic = true
                 } label: {
                     BottomBarItem(
@@ -184,29 +171,34 @@ struct ContentView: View {
                     )
                 }
 
-                Menu {
+                Button {
                     if settings.allowPiP {
-                        Button {
-                            browser.requestPictureInPicture()
-                        } label: {
-                            Label("PiPを開始", systemImage: "pip.enter")
-                        }
-                    }
-
-                    if settings.allowFullscreen {
-                        Button {
-                            browser.requestFullscreen()
-                        } label: {
-                            Label("全画面表示", systemImage: "arrow.up.left.and.arrow.down.right")
-                        }
+                        browser.requestPictureInPicture()
                     }
                 } label: {
                     BottomBarItem(
-                        systemName: "play.rectangle.on.rectangle",
-                        title: "表示",
+                        systemName: "pip.enter",
+                        title: "PiP",
                         emphasized: false
                     )
                 }
+                .disabled(!settings.allowPiP)
+                .opacity(settings.allowPiP ? 1 : 0.35)
+
+                Button {
+                    if settings.allowFullscreen {
+                        browser.requestFullscreen()
+                    }
+                } label: {
+                    BottomBarItem(
+                        systemName: "arrow.up.left.and.arrow.down.right",
+                        title: "全画面",
+                        emphasized: false
+                    )
+                }
+                .disabled(!settings.allowFullscreen)
+                .opacity(settings.allowFullscreen ? 1 : 0.35)
+
 
                 Button {
                     showSettings = true
@@ -292,7 +284,7 @@ private struct BottomBarItem: View {
                 .lineLimit(1)
         }
         .foregroundStyle(emphasized ? settings.themeColor : Color.primary)
-        .frame(width: 56, height: 42)
+        .frame(width: 60, height: 42)
         .contentShape(Rectangle())
     }
 }
