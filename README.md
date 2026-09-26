@@ -213,3 +213,21 @@ YouTubeがストリーム切替やDOM更新時に、一瞬だけ `paused = true`
 - 本当に停止している場合だけ表示を変更
 
 これにより「再生中 → 一瞬停止中 → 再生中」のちらつきを抑えます。
+
+
+## v0.12 WebView 黒画面修正
+
+v0.9以降のダークテーマ初期化処理で、`document.documentElement` の
+`style` 属性を `MutationObserver` で監視しながら同じ `style` を更新していたため、
+自己再発火ループになる可能性がありました。
+
+### 修正
+- documentStartのMutationObserverを削除
+- ダークテーマは読み込み開始時に1回適用
+- DOMContentLoaded後にも1回適用
+- 通常表示後のテーマ補正は2.5秒間隔へ軽量化
+- WKWebViewの読み込み失敗ログを追加
+- WebContent processが終了した場合は自動reload
+
+PiP / 全画面 / ミニプレイヤー / テキスト一覧 / Shorts・Mix非表示など
+v0.11までの機能は維持しています。

@@ -86,28 +86,28 @@ struct WebView: UIViewRepresentable {
               root.setAttribute('dark', '');
               root.setAttribute('darker-dark-theme', '');
               root.style.setProperty('color-scheme', 'dark', 'important');
-              root.style.setProperty('background-color', '#0f0f0f', 'important');
               root.style.setProperty('--yt-spec-base-background', '#0f0f0f', 'important');
               root.style.setProperty('--yt-spec-raised-background', '#212121', 'important');
               root.style.setProperty('--yt-spec-menu-background', '#282828', 'important');
               root.style.setProperty('--yt-spec-text-primary', '#f1f1f1', 'important');
               root.style.setProperty('--yt-spec-text-secondary', '#aaaaaa', 'important');
-              root.style.setProperty('--yt-spec-general-background-a', '#181818', 'important');
-              root.style.setProperty('--yt-spec-general-background-b', '#0f0f0f', 'important');
-              root.style.setProperty('--yt-spec-general-background-c', '#030303', 'important');
             } else {
               root.removeAttribute('dark');
               root.removeAttribute('darker-dark-theme');
               root.style.setProperty('color-scheme', 'light', 'important');
-              root.style.setProperty('background-color', '#ffffff', 'important');
             }
           };
 
+          // Apply once at document start. Do NOT observe root.style here:
+          // observing and writing the same style attribute can create an
+          // infinite MutationObserver loop and prevent YouTube from rendering.
           applyEarly();
-          new MutationObserver(applyEarly).observe(
-            document.documentElement,
-            { attributes: true, attributeFilter: ['dark', 'darker-dark-theme', 'style', 'class'] }
-          );
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyEarly, { once: true });
+          } else {
+            applyEarly();
+          }
         })();
         """
     }
@@ -757,7 +757,7 @@ struct WebView: UIViewRepresentable {
           window.webkit?.messageHandlers?.traffic?.postMessage(o);
           sendPlayerState();
         } catch {}
-      }, 1200);
+      }, 2500);
     })();
     """#
 
@@ -854,6 +854,21 @@ struct WebView: UIViewRepresentable {
         func webView(_ w: WKWebView, didCommit n: WKNavigation!) {
             Task { @MainActor in model.isLoading = true }
             applyPageSettings(in: w)
+        }
+
+        func webView(_ w: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            print("WKWebView navigation failed: \(error.localizedDescription)")
+            Task { @MainActor in model.isLoading = false }
+        }
+
+        func webView(_ w: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            print("WKWebView provisional navigation failed: \(error.localizedDescription)")
+            Task { @MainActor in model.isLoading = false }
+        }
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            print("WKWebView content process terminated; reloading")
+            webView.reload()
         }
 
         func applyPageSettings(in w: WKWebView) {
