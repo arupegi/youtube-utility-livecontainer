@@ -35,10 +35,14 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { phase in
             switch phase {
+            case .inactive:
+                if settings.allowPiP && browser.isPlaying {
+                    browser.requestPictureInPicture()
+                }
             case .background:
                 browser.prepareForBackground()
             case .active:
-                browser.resumeAfterForeground()
+                browser.recoverAfterForeground()
             default:
                 break
             }

@@ -223,10 +223,9 @@ struct SettingsView: View {
                     }
 
                     Button {
-                        browser.reload()
                         dismiss()
                     } label: {
-                        Label("設定を適用して再読み込み", systemImage: "arrow.clockwise")
+                        Label("設定を適用", systemImage: "checkmark.circle")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
                     }

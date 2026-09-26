@@ -231,3 +231,35 @@ v0.9以降のダークテーマ初期化処理で、`document.documentElement` �
 
 PiP / 全画面 / ミニプレイヤー / テキスト一覧 / Shorts・Mix非表示など
 v0.11までの機能は維持しています。
+
+
+## v0.13 動作安定化
+
+画面録画で確認できた不安定な挙動をまとめて修正しました。
+
+### 1. バックグラウンド復帰後の黒/空白画面
+- 復帰時に毎回reloadしない
+- DOMが本当に空になっている場合のみ遅延reload
+- 正常なページなら再生状態だけ復帰
+
+### 2. PiP
+- `scenePhase == .inactive` の段階でPiP移行を試行
+- `webkitSetPresentationMode("picture-in-picture")` を優先
+- 対応環境では標準Picture-in-Picture APIもフォールバック
+- WebKitの `allowsPictureInPictureMediaPlayback` は維持
+
+### 3. 設定変更時のちらつき/再読み込み
+- 下バー操作からの明示reloadを削除
+- 設定画面の「設定を適用して再読み込み」を「設定を適用」に変更
+- Content Rule変更が必要な場合だけ1回だけ制御reload
+- Content Ruleの並行compileを防止
+
+### 4. Shorts非表示
+- `/shorts/` のdocument自体をContent Ruleでblockする処理を削除
+- DOM上で非表示に統一
+- Shortsリンク遷移時に空白ページになる可能性を低減
+
+### 5. テーマ表示
+- WKWebViewのネイティブ背景色もライト/ダークに同期
+- YouTube描画前後の白/黒フラッシュを低減
+- 強制テーマ補正の間隔を4秒へ緩和

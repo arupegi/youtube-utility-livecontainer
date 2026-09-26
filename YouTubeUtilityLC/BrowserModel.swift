@@ -55,6 +55,72 @@ final class BrowserModel: ObservableObject {
     }
 
 
+
+    func requestPictureInPicture() {
+        webView?.evaluateJavaScript("""
+        (() => {
+          const v = document.querySelector('video');
+          if (!v || v.paused || v.ended) return false;
+
+          try {
+            if (typeof v.webkitSetPresentationMode === 'function') {
+              v.webkitSetPresentationMode('picture-in-picture');
+              return true;
+            }
+          } catch {}
+
+          try {
+            if (document.pictureInPictureElement) return true;
+            if (typeof v.requestPictureInPicture === 'function') {
+              v.requestPictureInPicture().catch(() => {});
+              return true;
+            }
+          } catch {}
+
+          return false;
+        })()
+        """)
+    }
+
+    func recoverAfterForeground() {
+        AudioSessionManager.shared.reactivate()
+
+        guard let webView else { return }
+
+        webView.evaluateJavaScript("""
+        (() => {
+          const body = document.body;
+          const app = document.querySelector('ytd-app');
+          const player = document.querySelector('video');
+          const text = (body?.innerText || '').trim();
+          return {
+            ready: document.readyState,
+            hasBody: !!body,
+            hasApp: !!app,
+            hasPlayer: !!player,
+            bodyTextLength: text.length
+          };
+        })()
+        """) { result, _ in
+            Task { @MainActor in
+                let d = result as? [String: Any]
+                let hasBody = d?["hasBody"] as? Bool ?? false
+                let hasApp = d?["hasApp"] as? Bool ?? false
+                let textLength = d?["bodyTextLength"] as? Int ?? 0
+
+                // Do not blindly reload after every foreground transition.
+                // Reload only when WebKit genuinely resumed into an empty page.
+                if !hasBody || (!hasApp && textLength == 0) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                        webView.reload()
+                    }
+                } else {
+                    self.resumeAfterForeground()
+                }
+            }
+        }
+    }
+
     func refreshPlaybackState() {
         webView?.evaluateJavaScript("""
         (() => {

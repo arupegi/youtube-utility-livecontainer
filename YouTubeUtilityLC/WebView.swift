@@ -46,9 +46,21 @@ struct WebView: UIViewRepresentable {
         w.navigationDelegate = context.coordinator
         w.uiDelegate = context.coordinator
         w.allowsBackForwardNavigationGestures = true
-        w.isOpaque = false
-        w.backgroundColor = .clear
-        w.scrollView.backgroundColor = .clear
+        w.isOpaque = true
+        let darkNow: Bool
+        switch settings.appearanceMode {
+        case "dark":
+            darkNow = true
+        case "light":
+            darkNow = false
+        default:
+            darkNow = UITraitCollection.current.userInterfaceStyle == .dark
+        }
+        let pageBackground = darkNow
+            ? UIColor(red: 15/255, green: 15/255, blue: 15/255, alpha: 1)
+            : UIColor.white
+        w.backgroundColor = pageBackground
+        w.scrollView.backgroundColor = pageBackground
 
         model.webView = w
         context.coordinator.installRules(on: w)
@@ -61,6 +73,26 @@ struct WebView: UIViewRepresentable {
 
     func updateUIView(_ w: WKWebView, context: Context) {
         context.coordinator.settings = settings
+
+        let darkNow: Bool
+        switch settings.appearanceMode {
+        case "dark":
+            darkNow = true
+        case "light":
+            darkNow = false
+        default:
+            darkNow = UITraitCollection.current.userInterfaceStyle == .dark
+        }
+
+        let pageBackground = darkNow
+            ? UIColor(red: 15/255, green: 15/255, blue: 15/255, alpha: 1)
+            : UIColor.white
+
+        if w.backgroundColor != pageBackground {
+            w.backgroundColor = pageBackground
+            w.scrollView.backgroundColor = pageBackground
+        }
+
         context.coordinator.installRules(on: w)
         context.coordinator.applyPageSettings(in: w)
     }
@@ -757,7 +789,7 @@ struct WebView: UIViewRepresentable {
           window.webkit?.messageHandlers?.traffic?.postMessage(o);
           sendPlayerState();
         } catch {}
-      }, 2500);
+      }, 4000);
     })();
     """#
 
@@ -766,6 +798,8 @@ struct WebView: UIViewRepresentable {
         var settings: AppSettings
         private var key = ""
         private var pendingPauseWorkItem: DispatchWorkItem?
+        private var isCompilingRules = false
+        private var lastAppliedThemeKey = ""
 
         init(model: BrowserModel, settings: AppSettings) {
             self.model = model
@@ -898,7 +932,7 @@ struct WebView: UIViewRepresentable {
         }
 
         func installRules(on w: WKWebView) {
-            let k = [
+            let newKey = [
                 settings.adBlock ? "a1" : "a0",
                 settings.audioOnly ? "v1" : "v0",
                 settings.blockSeekPreview ? "s1" : "s0",
@@ -908,8 +942,8 @@ struct WebView: UIViewRepresentable {
                 settings.hideShorts ? "h1" : "h0"
             ].joined(separator: "-")
 
-            if k == key { return }
-            key = k
+            guard newKey != key, !isCompilingRules else { return }
+            isCompilingRules = true
 
             var rules: [[String: Any]] = []
 
@@ -945,27 +979,42 @@ struct WebView: UIViewRepresentable {
                 block(".*ggpht\\.com/.*", ["image"])
             }
 
-            if settings.hideShorts {
-                block(".*youtube\\.com/shorts/.*", ["document"])
-            }
-
+            // Do not block /shorts/ as a document. Hiding it in the DOM is safer:
+            // blocking navigation at the WebKit rule level can leave a blank page.
             if settings.audioOnly {
                 block(".*googlevideo\\.com/.*mime=video.*", ["media","raw"])
                 block(".*googlevideo\\.com/.*itag=(133|134|135|136|137|138|160|242|243|244|247|248|264|266|271|272|278|298|299|302|303|308|313|315).*", ["media","raw"])
             }
 
             guard let data = try? JSONSerialization.data(withJSONObject: rules),
-                  let json = String(data: data, encoding: .utf8) else { return }
+                  let json = String(data: data, encoding: .utf8) else {
+                isCompilingRules = false
+                return
+            }
 
             WKContentRuleListStore.default().compileContentRuleList(
-                forIdentifier: "YouTubeUtilityLC-\(k)",
+                forIdentifier: "YouTubeUtilityLC-\(newKey)",
                 encodedContentRuleList: json
-            ) { list, _ in
-                guard let list else { return }
+            ) { [weak self, weak w] list, error in
                 DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.isCompilingRules = false
+
+                    guard error == nil, let list, let w else {
+                        print("Content rule compile failed: \(error?.localizedDescription ?? "unknown")")
+                        return
+                    }
+
+                    self.key = newKey
                     w.configuration.userContentController.removeAllContentRuleLists()
                     w.configuration.userContentController.add(list)
-                    w.reload()
+
+                    // One controlled reload only when the current document has
+                    // already completed loading. If it is still navigating,
+                    // the rule list will apply naturally to subsequent requests.
+                    if !self.model.isLoading, w.url != nil {
+                        w.reload()
+                    }
                 }
             }
         }
