@@ -158,6 +158,19 @@ struct ContentView: View {
                 }
 
                 Button {
+                    if !browser.isMiniPlayer {
+                        settings.audioOnly = false
+                    }
+                    browser.toggleMiniPlayer()
+                } label: {
+                    BottomBarItem(
+                        systemName: browser.isMiniPlayer ? "pip.exit" : "pip.enter",
+                        title: browser.isMiniPlayer ? "戻す" : "ミニ",
+                        emphasized: browser.isMiniPlayer
+                    )
+                }
+
+                Button {
                     showTraffic = true
                 } label: {
                     BottomBarItem(
@@ -251,7 +264,7 @@ private struct BottomBarItem: View {
                 .lineLimit(1)
         }
         .foregroundStyle(emphasized ? settings.themeColor : Color.primary)
-        .frame(width: 72, height: 42)
+        .frame(width: 64, height: 42)
         .contentShape(Rectangle())
     }
 }

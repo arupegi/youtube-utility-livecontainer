@@ -90,6 +90,54 @@ struct SettingsView: View {
                     }
 
 
+
+
+                    card("プレイヤー機能", icon: "rectangle.on.rectangle") {
+                        settingToggle(
+                            "PiPを許可",
+                            detail: "YouTubeのピクチャ・イン・ピクチャを使用できるようにする",
+                            isOn: $settings.allowPiP
+                        )
+
+                        Divider()
+
+                        settingToggle(
+                            "全画面表示を許可",
+                            detail: "YouTubeプレイヤーの全画面表示を使用できるようにする",
+                            isOn: $settings.allowFullscreen
+                        )
+
+                        Text("OFFにすると、対応するYouTubeプレイヤーの操作ボタンも非表示になります。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    card("ミニプレイヤー", icon: "pip") {
+                        HStack(spacing: 12) {
+                            Image(systemName: browser.isMiniPlayer ? "pip.exit" : "pip.enter")
+                                .font(.title2)
+                                .foregroundStyle(settings.themeColor)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(browser.isMiniPlayer ? "ミニプレイヤー使用中" : "ミニプレイヤー")
+                                    .font(.body.weight(.medium))
+                                Text("動画を右下に残したまま検索やチャンネル一覧を操作できます。")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Button(browser.isMiniPlayer ? "戻す" : "開始") {
+                                if !browser.isMiniPlayer {
+                                    settings.audioOnly = false
+                                }
+                                browser.toggleMiniPlayer()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
+
                     card("一覧表示", icon: "text.justify") {
                         settingToggle(
                             "テキスト一覧モード",

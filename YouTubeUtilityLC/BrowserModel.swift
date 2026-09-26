@@ -8,6 +8,7 @@ final class BrowserModel: ObservableObject {
     @Published var title = "YouTube"
     @Published var isLoading = false
     @Published var isPlaying = false
+    @Published var isMiniPlayer = false
     @Published var traffic = TrafficSnapshot()
 
     weak var webView: WKWebView?
@@ -35,6 +36,25 @@ final class BrowserModel: ObservableObject {
     func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
     func resetTraffic() { traffic = TrafficSnapshot() }
 
+
+    func setMiniPlayer(_ enabled: Bool) {
+        isMiniPlayer = enabled
+        let value = enabled ? "true" : "false"
+        webView?.evaluateJavaScript("""
+        (() => {
+          if (window.__ytuSetMiniPlayer) {
+            return window.__ytuSetMiniPlayer(\(value));
+          }
+          return false;
+        })()
+        """)
+    }
+
+    func toggleMiniPlayer() {
+        setMiniPlayer(!isMiniPlayer)
+    }
+
+
     func refreshPlaybackState() {
         webView?.evaluateJavaScript("""
         (() => {
@@ -42,8 +62,14 @@ final class BrowserModel: ObservableObject {
           return !!(v && !v.paused && !v.ended);
         })()
         """) { result, _ in
+            let playing = (result as? Bool) ?? false
             Task { @MainActor in
-                self.isPlaying = (result as? Bool) ?? false
+                // Positive state can be reflected immediately.
+                // Negative state is handled more conservatively by the
+                // WebView playerState debounce to avoid UI flicker.
+                if playing {
+                    self.isPlaying = true
+                }
             }
         }
     }

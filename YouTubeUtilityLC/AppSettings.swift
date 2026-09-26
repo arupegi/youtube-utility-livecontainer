@@ -2,6 +2,8 @@ import Foundation
 import SwiftUI
 
 final class AppSettings: ObservableObject {
+    @AppStorage("allowFullscreen") var allowFullscreen = true
+    @AppStorage("allowPiP") var allowPiP = true
     @AppStorage("syncYouTubeTheme") var syncYouTubeTheme = true
     @AppStorage("hideShorts") var hideShorts = true
     @AppStorage("hideMixes") var hideMixes = true
