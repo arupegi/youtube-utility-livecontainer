@@ -107,7 +107,7 @@ struct SettingsView: View {
                             isOn: $settings.allowFullscreen
                         )
 
-                        Text("OFFにすると、対応するYouTubeプレイヤーの操作ボタンも非表示になります。")
+                        Text("ONの場合はYouTubeプレイヤー上に専用ボタンを追加します。下バーの「表示」からもPiP / 全画面を開始できます。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

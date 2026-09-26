@@ -146,43 +146,63 @@ struct WebView: UIViewRepresentable {
 
     static let pageScript = #"""
     (() => {
-      function style(id, txt) {
-        let s = document.getElementById(id);
-        if (!s) {
-          s = document.createElement('style');
-          s.id = id;
-          (document.head || document.documentElement).appendChild(s);
+      if (window.__ytuV14Installed) return;
+      window.__ytuV14Installed = true;
+
+      let cfg = {};
+      let cleanupTimer = null;
+      let trafficTimer = null;
+      let lastPlaying = null;
+
+      const traffic = {
+        total: 0,
+        audio: 0,
+        video: 0,
+        image: 0,
+        other: 0,
+        count: 0
+      };
+
+      function style(id, text) {
+        let el = document.getElementById(id);
+        if (!el) {
+          el = document.createElement('style');
+          el.id = id;
+          (document.head || document.documentElement).appendChild(el);
         }
-        s.textContent = txt;
+        if (el.textContent !== text) el.textContent = text;
       }
 
       function currentVideo() {
         return document.querySelector('video');
       }
 
-      function sendPlayerState() {
+      function postPlayerState(force = false) {
         const v = currentVideo();
+        const playing = !!(v && !v.paused && !v.ended);
+
+        if (!force && playing === lastPlaying) return;
+        lastPlaying = playing;
+
         try {
-          window.webkit?.messageHandlers?.playerState?.postMessage({
-            playing: !!(v && !v.paused && !v.ended)
-          });
+          window.webkit?.messageHandlers?.playerState?.postMessage({ playing });
         } catch {}
       }
 
-      function shouldUseDark(mode) {
-        if (mode === 'dark') return true;
-        if (mode === 'light') return false;
+      function wantsDark() {
+        if (cfg.appearanceMode === 'dark') return true;
+        if (cfg.appearanceMode === 'light') return false;
         try {
-          return window.matchMedia('(prefers-color-scheme: dark)').matches;
+          return matchMedia('(prefers-color-scheme: dark)').matches;
         } catch {
-          return !!window.__ytuBootstrapDark;
+          return false;
         }
       }
 
-      function forceYouTubeTheme(c) {
-        if (!c.syncYouTubeTheme) return;
+      function applyTheme() {
+        if (!cfg.syncYouTubeTheme) return;
 
-        const dark = shouldUseDark(c.appearanceMode || 'system');
+        const dark = wantsDark();
         const root = document.documentElement;
         const body = document.body;
         const app = document.querySelector('ytd-app');
@@ -192,29 +212,23 @@ struct WebView: UIViewRepresentable {
           root?.setAttribute('darker-dark-theme', '');
           app?.setAttribute('dark', '');
 
-          const targets = [root, body, app].filter(Boolean);
-          for (const el of targets) {
+          for (const el of [root, body, app].filter(Boolean)) {
             el.style.setProperty('color-scheme', 'dark', 'important');
             el.style.setProperty('--yt-spec-base-background', '#0f0f0f', 'important');
             el.style.setProperty('--yt-spec-raised-background', '#212121', 'important');
             el.style.setProperty('--yt-spec-menu-background', '#282828', 'important');
-            el.style.setProperty('--yt-spec-inverted-background', '#f1f1f1', 'important');
             el.style.setProperty('--yt-spec-text-primary', '#f1f1f1', 'important');
             el.style.setProperty('--yt-spec-text-secondary', '#aaaaaa', 'important');
-            el.style.setProperty('--yt-spec-text-disabled', '#717171', 'important');
             el.style.setProperty('--yt-spec-general-background-a', '#181818', 'important');
             el.style.setProperty('--yt-spec-general-background-b', '#0f0f0f', 'important');
             el.style.setProperty('--yt-spec-general-background-c', '#030303', 'important');
-            el.style.setProperty('--yt-spec-badge-chip-background', 'rgba(255,255,255,.10)', 'important');
-            el.style.setProperty('--yt-spec-10-percent-layer', 'rgba(255,255,255,.10)', 'important');
           }
         } else {
           root?.removeAttribute('dark');
           root?.removeAttribute('darker-dark-theme');
           app?.removeAttribute('dark');
 
-          const targets = [root, body, app].filter(Boolean);
-          for (const el of targets) {
+          for (const el of [root, body, app].filter(Boolean)) {
             el.style.setProperty('color-scheme', 'light', 'important');
             el.style.setProperty('--yt-spec-base-background', '#ffffff', 'important');
             el.style.setProperty('--yt-spec-raised-background', '#f9f9f9', 'important');
@@ -225,168 +239,149 @@ struct WebView: UIViewRepresentable {
         }
       }
 
-      function youtubeThemeCSS(c) {
-        if (!c.syncYouTubeTheme) return '';
-        const dark = shouldUseDark(c.appearanceMode || 'system');
+      function commonCSS() {
+        let css = '';
 
-        if (!dark) {
-          return `
-            html, body, ytd-app, #page-manager, ytd-browse, ytd-search,
-            ytd-watch-flexy, ytd-two-column-browse-results-renderer,
-            ytd-two-column-search-results-renderer, ytd-section-list-renderer,
-            ytd-rich-grid-renderer {
-              background-color:#fff !important;
-              color:#0f0f0f !important;
+        if (cfg.syncYouTubeTheme && wantsDark()) {
+          css += `
+            html,body,ytd-app,#page-manager,#content,#primary,#secondary,
+            ytd-browse,ytd-search,ytd-watch-flexy,
+            ytd-two-column-browse-results-renderer,
+            ytd-two-column-search-results-renderer,
+            ytd-section-list-renderer,ytd-rich-grid-renderer,
+            ytd-masthead,#masthead-container {
+              background:#0f0f0f!important;
+              color:#f1f1f1!important;
+            }
+
+            ytd-searchbox,#container.ytd-searchbox,#search-form,#search-input,
+            input#search,input.ytd-searchbox,yt-searchbox,yt-searchbox input {
+              background:#181818!important;
+              color:#f1f1f1!important;
+              border-color:#303030!important;
+            }
+
+            #video-title,a#video-title,#video-title-link,#channel-name,
+            ytd-channel-name,ytd-channel-name a,#metadata-line,
+            #metadata-line span,#byline-container,yt-formatted-string,
+            yt-attributed-string,.yt-core-attributed-string,h1,h2,h3 {
+              color:#f1f1f1!important;
+            }
+
+            #metadata-line,#metadata-line span,#byline-container,
+            #description,#owner-sub-count,#subscriber-count {
+              color:#aaa!important;
+            }
+
+            ytd-video-renderer,ytd-rich-item-renderer,ytd-rich-grid-media,
+            ytd-grid-video-renderer,ytd-compact-video-renderer,
+            ytd-playlist-video-renderer {
+              border-color:rgba(255,255,255,.08)!important;
             }
           `;
         }
 
-        return `
-          html, body, ytd-app,
-          #page-manager, #content, #primary, #secondary,
-          ytd-browse, ytd-search, ytd-watch-flexy,
-          ytd-two-column-browse-results-renderer,
-          ytd-two-column-search-results-renderer,
-          ytd-section-list-renderer, ytd-rich-grid-renderer,
-          tp-yt-app-drawer, ytd-mini-guide-renderer,
-          ytd-guide-renderer {
-            background-color:#0f0f0f !important;
-            color:#f1f1f1 !important;
-          }
+        if (cfg.hideComments) {
+          css += `#comments,ytd-comments,
+            ytd-item-section-renderer[target-id="comments-section"]{display:none!important;}`;
+        }
 
-          ytd-masthead, #masthead-container,
-          #container.ytd-masthead, #background.ytd-masthead {
-            background-color:#0f0f0f !important;
-            color:#f1f1f1 !important;
-            border-color:rgba(255,255,255,.08) !important;
-          }
+        if (cfg.hideChat) {
+          css += `#chat,#chat-container,ytd-live-chat-frame{display:none!important;}`;
+        }
 
-          ytd-searchbox, #container.ytd-searchbox,
-          #search-form, #search-input,
-          input#search, input.ytd-searchbox,
-          yt-searchbox, yt-searchbox input {
-            background-color:#181818 !important;
-            color:#f1f1f1 !important;
-            border-color:#303030 !important;
-          }
+        if (cfg.hideRelated) {
+          css += `#related,ytd-watch-next-secondary-results-renderer{display:none!important;}`;
+        }
 
-          #search-icon-legacy, ytd-searchbox button,
-          tp-yt-paper-icon-button {
-            background-color:#222 !important;
-            color:#f1f1f1 !important;
-          }
+        if (cfg.hideThumbnails || cfg.textListMode || cfg.blockImages) {
+          css += `
+            ytd-thumbnail,yt-image,img.yt-core-image,.yt-core-image,
+            #thumbnail,#thumbnail-container,.thumbnail-container {
+              display:none!important;
+              visibility:hidden!important;
+            }
+          `;
+        }
 
-          #video-title, a#video-title, #video-title-link,
-          #channel-name, ytd-channel-name, ytd-channel-name a,
-          #metadata-line, #metadata-line span,
-          #byline-container, #description,
-          yt-formatted-string, h1, h2, h3,
-          yt-attributed-string, .yt-core-attributed-string {
-            color:#f1f1f1 !important;
-          }
+        if (cfg.blockSeekPreview) {
+          css += `.ytp-tooltip-bg,.ytp-tooltip-text-wrapper,
+            .ytp-storyboard-framepreview,.ytp-preview{display:none!important;}`;
+        }
 
-          #metadata-line, #metadata-line span,
-          #byline-container, #description, #subtitle,
-          .metadata-snippet-text, #owner-sub-count,
-          #subscriber-count {
-            color:#aaa !important;
-          }
+        if (cfg.audioOnly && !cfg.miniPlayer) {
+          css += `video{opacity:0!important;background:#000!important;}`;
+        }
 
-          ytd-video-renderer, ytd-rich-item-renderer,
-          ytd-rich-grid-media, ytd-grid-video-renderer,
-          ytd-compact-video-renderer, ytd-playlist-video-renderer,
-          ytd-comment-thread-renderer, ytd-comments,
-          ytd-engagement-panel-section-list-renderer,
-          ytd-menu-popup-renderer, tp-yt-paper-dialog,
-          yt-sheet-view-model, tp-yt-paper-listbox {
-            background-color:#181818 !important;
-            color:#f1f1f1 !important;
-            border-color:rgba(255,255,255,.08) !important;
-          }
+        if (cfg.hideShorts) {
+          css += `
+            ytd-reel-shelf-renderer,
+            ytd-rich-shelf-renderer[is-shorts],
+            ytd-guide-entry-renderer a[href="/shorts"],
+            a[href="/shorts"] {
+              display:none!important;
+            }
+          `;
+        }
 
-          ytd-c4-tabbed-header-renderer, ytd-page-header-renderer,
-          #channel-header-container, #tabs-container,
-          #tabsContent, yt-tab-shape, tp-yt-paper-tab,
-          #columns, #below, #info, #meta, ytd-watch-metadata {
-            background-color:#0f0f0f !important;
-            color:#f1f1f1 !important;
-          }
+        if (!cfg.allowPiP) {
+          css += `
+            .ytp-pip-button,
+            button[aria-label*="Picture-in-Picture"],
+            button[aria-label*="ピクチャ"] {
+              display:none!important;
+            }
+          `;
+        }
 
-          yt-chip-cloud-chip-renderer,
-          ytd-feed-filter-chip-bar-renderer,
-          yt-chip-cloud-renderer, .ytChipShapeChip,
-          .yt-spec-button-shape-next {
-            background-color:#272727 !important;
-            color:#f1f1f1 !important;
-            border-color:rgba(255,255,255,.08) !important;
-          }
+        if (!cfg.allowFullscreen) {
+          css += `
+            .ytp-fullscreen-button,
+            button[aria-label*="Full screen"],
+            button[aria-label*="fullscreen"],
+            button[aria-label*="全画面"] {
+              display:none!important;
+            }
+          `;
+        }
 
-          ::-webkit-scrollbar { width:10px; height:10px; }
-          ::-webkit-scrollbar-track { background:#0f0f0f; }
-          ::-webkit-scrollbar-thumb {
-            background:#3f3f3f;
-            border-radius:999px;
-            border:2px solid #0f0f0f;
-          }
-        `;
+        return css;
       }
 
-      function listModeCSS() {
+      function listCSS() {
+        if (!cfg.textListMode) return '';
+
         return `
-          ytd-video-renderer,
-          ytd-compact-video-renderer,
-          ytd-playlist-video-renderer,
-          ytd-grid-video-renderer,
-          ytd-rich-item-renderer,
-          ytd-rich-grid-media {
-            display:block !important;
-            width:100% !important;
-            max-width:none !important;
-            margin:0 0 8px 0 !important;
-            padding:11px 14px !important;
-            box-sizing:border-box !important;
-            background:rgba(127,127,127,.075) !important;
-            border-radius:13px !important;
-            min-height:0 !important;
+          ytd-video-renderer,ytd-compact-video-renderer,
+          ytd-playlist-video-renderer,ytd-grid-video-renderer,
+          ytd-rich-item-renderer,ytd-rich-grid-media {
+            display:block!important;
+            width:100%!important;
+            max-width:none!important;
+            margin:0 0 8px 0!important;
+            padding:10px 13px!important;
+            box-sizing:border-box!important;
+            background:rgba(127,127,127,.07)!important;
+            border-radius:12px!important;
+            min-height:0!important;
           }
 
-          ytd-rich-grid-renderer,
-          ytd-rich-grid-row,
+          ytd-rich-grid-renderer,ytd-rich-grid-row,
           #contents.ytd-rich-grid-renderer,
-          ytd-two-column-browse-results-renderer #primary,
-          ytd-section-list-renderer #contents {
-            display:block !important;
-            width:100% !important;
-            max-width:none !important;
-          }
-
-          ytd-rich-grid-renderer #contents {
-            margin:0 !important;
-            padding:8px 12px !important;
+          ytd-two-column-browse-results-renderer #primary {
+            display:block!important;
+            width:100%!important;
+            max-width:none!important;
           }
 
           ytd-rich-grid-row #contents {
-            display:block !important;
-            width:100% !important;
+            display:block!important;
+            width:100%!important;
           }
 
           ytd-rich-item-renderer {
-            --ytd-rich-grid-item-max-width:none !important;
-            --ytd-rich-grid-item-min-width:0 !important;
-          }
-
-          ytd-thumbnail, yt-image, img.yt-core-image,
-          .yt-core-image, #thumbnail, #thumbnail-container,
-          .thumbnail-container, .ytd-thumbnail,
-          .iv-player-content, .ytp-cued-thumbnail-overlay-image {
-            display:none !important;
-            visibility:hidden !important;
-            width:0 !important;
-            height:0 !important;
-            min-width:0 !important;
-            min-height:0 !important;
-            margin:0 !important;
-            padding:0 !important;
+            --ytd-rich-grid-item-max-width:none!important;
+            --ytd-rich-grid-item-min-width:0!important;
           }
 
           ytd-video-renderer #dismissible,
@@ -401,332 +396,323 @@ struct WebView: UIViewRepresentable {
           ytd-playlist-video-renderer #meta,
           ytd-rich-grid-media #details,
           ytd-rich-item-renderer #details {
-            display:block !important;
-            width:100% !important;
-            max-width:none !important;
-            min-width:0 !important;
-            margin:0 !important;
-            padding:0 !important;
+            display:block!important;
+            width:100%!important;
+            max-width:none!important;
+            min-width:0!important;
+            margin:0!important;
+            padding:0!important;
           }
 
-          #video-title, a#video-title, #video-title-link {
-            display:block !important;
-            font-size:15px !important;
-            line-height:1.38 !important;
-            font-weight:650 !important;
-            margin:0 0 5px 0 !important;
-            white-space:normal !important;
-            max-height:none !important;
-            overflow:visible !important;
+          #video-title,a#video-title,#video-title-link {
+            display:block!important;
+            font-size:15px!important;
+            line-height:1.35!important;
+            font-weight:600!important;
+            margin:0 0 4px 0!important;
+            white-space:normal!important;
+            max-height:none!important;
+            overflow:visible!important;
           }
 
-          ytd-video-meta-block, #metadata, #metadata-line,
-          #byline-container, #channel-name,
-          ytd-channel-name, ytd-channel-name a {
-            max-width:100% !important;
-            font-size:12px !important;
-            line-height:1.45 !important;
-            color:rgba(127,127,127,.95) !important;
-          }
-
-          ytd-badge-supported-renderer, ytd-menu-renderer,
-          #menu, #buttons, .metadata-snippet-container,
-          ytd-thumbnail-overlay-time-status-renderer,
+          ytd-menu-renderer,#menu,.metadata-snippet-container,
           ytd-thumbnail-overlay-resume-playback-renderer {
-            display:none !important;
-          }
-
-          ytd-c4-tabbed-header-renderer,
-          ytd-page-header-renderer,
-          #channel-header-container {
-            margin-bottom:6px !important;
-          }
-
-          #tabsContent, yt-tab-shape, tp-yt-paper-tab {
-            min-height:38px !important;
-          }
-
-          ytd-rich-grid-renderer #contents > *,
-          ytd-rich-grid-row #contents > * {
-            width:100% !important;
-            max-width:none !important;
+            display:none!important;
           }
         `;
       }
 
+      function installPlayerButtons() {
+        const right = document.querySelector('.ytp-right-controls');
+        const video = currentVideo();
 
-      function playerFeatureCSS(c) {
-        let css = '';
+        if (!right || !video) return;
 
-        if (!c.allowPiP) {
-          css += `
-            .ytp-pip-button,
-            .ytp-miniplayer-button[aria-label*="Picture"],
-            button[aria-label*="Picture-in-Picture"],
-            button[aria-label*="ピクチャ"] {
-              display:none!important;
-              visibility:hidden!important;
+        let pip = document.getElementById('__ytu_pip_button');
+        if (!pip && cfg.allowPiP) {
+          pip = document.createElement('button');
+          pip.id = '__ytu_pip_button';
+          pip.className = 'ytp-button';
+          pip.type = 'button';
+          pip.title = 'PiP';
+          pip.setAttribute('aria-label', 'PiP');
+          pip.innerHTML = `
+            <svg viewBox="0 0 36 36" width="100%" height="100%" aria-hidden="true">
+              <path fill="currentColor"
+                d="M7 9h22v16H19v-2h8V11H9v14h7v2H7V9zm12 8h8v6h-8v-6z"/>
+            </svg>`;
+          pip.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const v = currentVideo();
+            if (!v) return;
+
+            try {
+              v.disablePictureInPicture = false;
+            } catch {}
+
+            try {
+              if (typeof v.webkitSetPresentationMode === 'function') {
+                v.webkitSetPresentationMode('picture-in-picture');
+                return;
+              }
+            } catch {}
+
+            try {
+              if (document.pictureInPictureElement) {
+                await document.exitPictureInPicture();
+              } else if (v.requestPictureInPicture) {
+                await v.requestPictureInPicture();
+              }
+            } catch (err) {
+              console.log('PiP failed', err);
             }
-          `;
+          }, true);
+
+          const nativeFull = right.querySelector('.ytp-fullscreen-button');
+          right.insertBefore(pip, nativeFull || null);
         }
 
-        if (!c.allowFullscreen) {
-          css += `
-            .ytp-fullscreen-button,
-            button[aria-label*="Full screen"],
-            button[aria-label*="fullscreen"],
-            button[aria-label*="全画面"] {
-              display:none!important;
-              visibility:hidden!important;
-            }
-          `;
+        if (pip) {
+          pip.style.display = cfg.allowPiP ? '' : 'none';
         }
 
-        return css;
+        let full = document.getElementById('__ytu_fullscreen_button');
+        if (!full && cfg.allowFullscreen) {
+          full = document.createElement('button');
+          full.id = '__ytu_fullscreen_button';
+          full.className = 'ytp-button';
+          full.type = 'button';
+          full.title = '全画面';
+          full.setAttribute('aria-label', '全画面');
+          full.innerHTML = `
+            <svg viewBox="0 0 36 36" width="100%" height="100%" aria-hidden="true">
+              <path fill="currentColor"
+                d="M8 8h8v2h-6v6H8V8zm12 0h8v8h-2v-6h-6V8zM8 20h2v6h6v2H8v-8zm18 0h2v8h-8v-2h6v-6z"/>
+            </svg>`;
+          full.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const v = currentVideo();
+            const player = document.querySelector('#movie_player') || v;
+            if (!v) return;
+
+            try {
+              if (document.fullscreenElement && document.exitFullscreen) {
+                await document.exitFullscreen();
+                return;
+              }
+              if (player?.requestFullscreen) {
+                await player.requestFullscreen();
+                return;
+              }
+            } catch {}
+
+            try {
+              if (typeof v.webkitEnterFullscreen === 'function') {
+                v.webkitEnterFullscreen();
+              }
+            } catch (err) {
+              console.log('Fullscreen failed', err);
+            }
+          }, true);
+
+          right.appendChild(full);
+        }
+
+        if (full) {
+          full.style.display = cfg.allowFullscreen ? '' : 'none';
+        }
+
+        try {
+          video.disablePictureInPicture = !cfg.allowPiP;
+          video.setAttribute('playsinline', '');
+          video.setAttribute('webkit-playsinline', '');
+        } catch {}
       }
 
-      function applyPlayerFeatures(c) {
-        window.__ytuPlayerFeatures = {
-          allowPiP: !!c.allowPiP,
-          allowFullscreen: !!c.allowFullscreen
-        };
+      function applyMiniPlayer() {
+        const player = document.querySelector('ytd-player');
+        if (!player) return;
 
-        style('__ytu_player_feature_style', playerFeatureCSS(c));
+        if (!cfg.miniPlayer) {
+          player.classList.remove('__ytu_custom_mini');
+          return;
+        }
 
-        document.querySelectorAll('video').forEach(v => {
-          try {
-            v.disablePictureInPicture = !c.allowPiP;
-          } catch {}
-
-          // Keep normal inline playback available even when fullscreen is disabled.
-          try {
-            v.setAttribute('playsinline', '');
-            v.setAttribute('webkit-playsinline', '');
-          } catch {}
-        });
-      }
-
-      if (!window.__ytuPlayerFeatureGuardsInstalled) {
-        window.__ytuPlayerFeatureGuardsInstalled = true;
-
-        const isFullscreenControl = (target) => {
-          const el = target?.closest?.(
-            '.ytp-fullscreen-button,' +
-            'button[aria-label*="Full screen"],' +
-            'button[aria-label*="fullscreen"],' +
-            'button[aria-label*="全画面"]'
-          );
-          return !!el;
-        };
-
-        const isPiPControl = (target) => {
-          const el = target?.closest?.(
-            '.ytp-pip-button,' +
-            'button[aria-label*="Picture-in-Picture"],' +
-            'button[aria-label*="ピクチャ"]'
-          );
-          return !!el;
-        };
-
-        document.addEventListener('click', (ev) => {
-          const f = window.__ytuPlayerFeatures || {};
-          if (f.allowFullscreen === false && isFullscreenControl(ev.target)) {
-            ev.preventDefault();
-            ev.stopImmediatePropagation();
-            return false;
-          }
-          if (f.allowPiP === false && isPiPControl(ev.target)) {
-            ev.preventDefault();
-            ev.stopImmediatePropagation();
-            return false;
-          }
-        }, true);
-
-        document.addEventListener('dblclick', (ev) => {
-          const f = window.__ytuPlayerFeatures || {};
-          if (f.allowFullscreen === false && ev.target?.closest?.('#movie_player, video')) {
-            ev.preventDefault();
-            ev.stopImmediatePropagation();
-            return false;
-          }
-        }, true);
-      }
-
-      function miniPlayerCSS() {
-        return `
+        style('__ytu_mini_style', `
           ytd-player.__ytu_custom_mini {
-            position:fixed !important;
-            right:18px !important;
-            bottom:18px !important;
-            width:min(360px, calc(100vw - 36px)) !important;
-            height:auto !important;
-            aspect-ratio:16 / 9 !important;
-            z-index:2147483000 !important;
-            background:#000 !important;
-            border-radius:14px !important;
-            overflow:hidden !important;
-            box-shadow:0 12px 42px rgba(0,0,0,.45) !important;
+            position:fixed!important;
+            right:18px!important;
+            bottom:18px!important;
+            width:min(360px,calc(100vw - 36px))!important;
+            aspect-ratio:16/9!important;
+            z-index:2147483000!important;
+            background:#000!important;
+            border-radius:14px!important;
+            overflow:hidden!important;
+            box-shadow:0 12px 42px rgba(0,0,0,.45)!important;
           }
-
           ytd-player.__ytu_custom_mini #movie_player,
           ytd-player.__ytu_custom_mini video {
-            width:100% !important;
-            height:100% !important;
+            width:100%!important;
+            height:100%!important;
           }
-
           ytd-player.__ytu_custom_mini video {
-            object-fit:contain !important;
-            opacity:1 !important;
+            object-fit:contain!important;
+            opacity:1!important;
           }
-        `;
+        `);
+
+        player.classList.add('__ytu_custom_mini');
       }
 
-      function cleanupSpecialShelves(c) {
-        if (c.hideShorts) {
-          document.querySelectorAll(`
-            ytd-reel-shelf-renderer,
-            ytd-rich-shelf-renderer[is-shorts],
-            ytd-rich-section-renderer:has(ytd-reel-shelf-renderer),
-            ytd-video-renderer a[href*="/shorts/"],
-            ytd-rich-item-renderer a[href*="/shorts/"],
-            ytd-grid-video-renderer a[href*="/shorts/"],
-            ytd-guide-entry-renderer a[href="/shorts"],
-            yt-tab-shape[tab-title*="Shorts"],
-            tp-yt-paper-tab:has(a[href*="/shorts"])
-          `).forEach(el => {
-            const card = el.closest(
-              'ytd-rich-item-renderer,ytd-grid-video-renderer,ytd-video-renderer,' +
-              'ytd-rich-section-renderer,ytd-reel-shelf-renderer,yt-tab-shape,tp-yt-paper-tab'
-            ) || el;
-            card.style.setProperty('display', 'none', 'important');
-          });
+      function hideMixFromNode(node) {
+        if (!cfg.hideMixes || !node || node.nodeType !== 1) return;
+
+        const candidates = [];
+
+        if (node.matches?.(
+          'ytd-radio-renderer,ytd-compact-radio-renderer,ytd-playlist-renderer,' +
+          'ytd-compact-playlist-renderer,ytd-rich-item-renderer,ytd-grid-playlist-renderer'
+        )) {
+          candidates.push(node);
         }
 
-        if (c.hideMixes) {
-          document.querySelectorAll(`
-            ytd-radio-renderer,
-            ytd-compact-radio-renderer,
-            ytd-playlist-renderer,
-            ytd-compact-playlist-renderer,
-            ytd-rich-item-renderer,
-            ytd-grid-playlist-renderer
-          `).forEach(el => {
-            const txt = (el.innerText || '').toLowerCase();
-            const hrefs = Array.from(el.querySelectorAll('a'))
-              .map(a => a.href || '').join(' ');
+        node.querySelectorAll?.(
+          'ytd-radio-renderer,ytd-compact-radio-renderer,ytd-playlist-renderer,' +
+          'ytd-compact-playlist-renderer,ytd-rich-item-renderer,ytd-grid-playlist-renderer'
+        ).forEach(el => candidates.push(el));
 
-            const isMix =
-              txt.includes('mix') ||
-              txt.includes('ミックス') ||
-              hrefs.includes('list=RD') ||
-              hrefs.includes('start_radio=1');
+        for (const el of candidates) {
+          const txt = (el.innerText || '').toLowerCase();
+          const hrefs = Array.from(el.querySelectorAll('a'))
+            .map(a => a.href || '').join(' ');
 
-            if (isMix) {
-              el.style.setProperty('display', 'none', 'important');
-            }
-          });
+          if (
+            txt.includes('mix') ||
+            txt.includes('ミックス') ||
+            hrefs.includes('list=RD') ||
+            hrefs.includes('start_radio=1')
+          ) {
+            el.style.setProperty('display', 'none', 'important');
+          }
         }
+      }
+
+      function bindVideo() {
+        const v = currentVideo();
+        if (!v || v.__ytuBoundV14) return;
+        v.__ytuBoundV14 = true;
+
+        ['play','pause','ended','playing','waiting'].forEach(name => {
+          v.addEventListener(name, () => postPlayerState(), { passive: true });
+        });
+
+        postPlayerState(true);
+      }
+
+      function applyDynamic(root = document) {
+        applyTheme();
+        bindVideo();
+        installPlayerButtons();
+        applyMiniPlayer();
+        hideMixFromNode(root);
+      }
+
+      function scheduleDynamic(root) {
+        if (cleanupTimer) return;
+        cleanupTimer = setTimeout(() => {
+          cleanupTimer = null;
+          applyDynamic(root || document);
+        }, 180);
+      }
+
+      function addResource(entry) {
+        if (!entry) return;
+        const n = entry.transferSize || entry.encodedBodySize || 0;
+        if (!n) return;
+
+        const u = (entry.name || '').toLowerCase();
+        traffic.total += n;
+        traffic.count += 1;
+
+        if (u.includes('googlevideo.com')) {
+          if (u.includes('mime=audio') || u.includes('audio/')) traffic.audio += n;
+          else if (u.includes('mime=video') || u.includes('video/')) traffic.video += n;
+          else traffic.other += n;
+        } else if (
+          u.includes('ytimg.com') ||
+          /\.(png|jpg|jpeg|webp|gif)(\?|$)/.test(u)
+        ) {
+          traffic.image += n;
+        } else {
+          traffic.other += n;
+        }
+      }
+
+      function postTraffic() {
+        try {
+          window.webkit?.messageHandlers?.traffic?.postMessage({...traffic});
+        } catch {}
+      }
+
+      // Incremental resource monitoring: no repeated full performance-entry scans.
+      try {
+        performance.getEntriesByType('resource').forEach(addResource);
+
+        const po = new PerformanceObserver(list => {
+          list.getEntries().forEach(addResource);
+
+          if (!trafficTimer) {
+            trafficTimer = setTimeout(() => {
+              trafficTimer = null;
+              postTraffic();
+            }, 1000);
+          }
+        });
+        po.observe({ type: 'resource', buffered: false });
+      } catch {}
+
+      // Only react to newly added DOM nodes. Do not rescan the whole page periodically.
+      const mo = new MutationObserver(records => {
+        let root = null;
+        for (const rec of records) {
+          if (rec.addedNodes?.length) {
+            root = rec.target;
+            break;
+          }
+        }
+        if (root) scheduleDynamic(root);
+      });
+
+      function startObserver() {
+        if (!document.documentElement) return;
+        mo.observe(document.documentElement, {
+          childList: true,
+          subtree: true
+        });
       }
 
       window.__ytuSetMiniPlayer = (enabled) => {
-        window.__ytuMiniPlayerEnabled = !!enabled;
-
-        const movie = document.querySelector('#movie_player');
-        const ytdPlayer = document.querySelector('ytd-player');
-
-        if (enabled) {
-          // Prefer YouTube's native mini player when available.
-          const nativeButton = document.querySelector('.ytp-miniplayer-button');
-          const alreadyNative =
-            movie?.classList.contains('ytp-player-minimized') ||
-            document.querySelector('.ytp-miniplayer-ui');
-
-          if (nativeButton && !alreadyNative) {
-            try {
-              nativeButton.click();
-              return true;
-            } catch {}
-          }
-
-          // Fallback for layouts without the native desktop mini-player control.
-          if (ytdPlayer) {
-            style('__ytu_mini_style', miniPlayerCSS());
-            ytdPlayer.classList.add('__ytu_custom_mini');
-            return true;
-          }
-
-          return false;
-        }
-
-        // Restore native mini player to the watch page when possible.
-        const expand =
-          document.querySelector('.ytp-miniplayer-expand-watch-page-button') ||
-          document.querySelector('.ytp-miniplayer-ui .ytp-miniplayer-expand-watch-page-button');
-        if (expand) {
-          try { expand.click(); } catch {}
-        }
-
-        ytdPlayer?.classList.remove('__ytu_custom_mini');
+        cfg.miniPlayer = !!enabled;
+        applyMiniPlayer();
         return true;
       };
 
-      window.__ytuApply = (c) => {
-        window.__ytuLastConfig = c;
-        let r = [];
+      window.__ytuApply = (next) => {
+        cfg = next || {};
+        window.__ytuLastConfig = cfg;
 
-        forceYouTubeTheme(c);
+        style('__ytu_style', commonCSS() + listCSS());
 
-        if (c.hideComments)
-          r.push('#comments,ytd-comments,ytd-item-section-renderer[target-id="comments-section"]{display:none!important}');
-        if (c.hideChat)
-          r.push('#chat,#chat-container,ytd-live-chat-frame{display:none!important}');
-        if (c.hideRelated)
-          r.push('#related,ytd-watch-next-secondary-results-renderer{display:none!important}');
-        if (c.hideThumbnails || c.textListMode || c.blockImages)
-          r.push('ytd-thumbnail,yt-image,img.yt-core-image,.yt-core-image{display:none!important;visibility:hidden!important}');
-        if (c.blockSeekPreview)
-          r.push('.ytp-tooltip-bg,.ytp-tooltip-text-wrapper,.ytp-storyboard-framepreview,.ytp-preview{display:none!important}');
-        if (c.audioOnly && !c.miniPlayer)
-          r.push('video{opacity:0!important;background:#000!important}');
-        if (c.textListMode)
-          r.push(listModeCSS());
-
-        r.push(youtubeThemeCSS(c));
-        r.push(playerFeatureCSS(c));
-
-        if (c.hideShorts) {
-          r.push(`
-            ytd-reel-shelf-renderer,
-            ytd-rich-shelf-renderer[is-shorts],
-            a[href="/shorts"],
-            ytd-guide-entry-renderer a[href="/shorts"] {
-              display:none!important;
-            }
-          `);
-        }
-
-        style('__ytu_style', r.join('\n'));
-        cleanupSpecialShelves(c);
-        applyPlayerFeatures(c);
-
-        if (c.miniPlayer) {
-          window.__ytuSetMiniPlayer(true);
-        } else {
-          document.querySelector('ytd-player')?.classList.remove('__ytu_custom_mini');
-        }
-
-        document.querySelectorAll('video').forEach(v => {
-          try { v.disablePictureInPicture = !!c.audioOnly; } catch {}
-          if (!v.__ytuBound) {
-            v.__ytuBound = true;
-            ['play','pause','ended','playing','waiting'].forEach(name => {
-              v.addEventListener(name, sendPlayerState, {passive:true});
-            });
-          }
-        });
-
-        sendPlayerState();
+        applyDynamic(document);
+        postTraffic();
       };
+
+      document.addEventListener('yt-navigate-finish', () => {
+        scheduleDynamic(document);
+      }, true);
 
       document.addEventListener('visibilitychange', () => {
         const v = currentVideo();
@@ -734,62 +720,25 @@ struct WebView: UIViewRepresentable {
 
         if (document.hidden) {
           window.__ytuWasPlayingBeforeBackground = !v.paused && !v.ended;
-          if (window.__ytuWasPlayingBeforeBackground) {
-            Promise.resolve().then(() => v.play()).catch(() => {});
-            setTimeout(() => v.play().catch(() => {}), 120);
+        } else {
+          if (window.__ytuWasPlayingBeforeBackground && v.paused) {
+            v.play().catch(() => {});
           }
-        } else if (window.__ytuWasPlayingBeforeBackground && v.paused) {
-          v.play().catch(() => {});
+          scheduleDynamic(document);
         }
-        sendPlayerState();
+
+        postPlayerState(true);
       }, true);
 
-      setInterval(() => {
-        try {
-          const c = window.__ytuLastConfig;
-          if (c) {
-            forceYouTubeTheme(c);
-            cleanupSpecialShelves(c);
-            applyPlayerFeatures(c);
-
-            if (c.miniPlayer && !document.querySelector('.ytp-miniplayer-ui')) {
-              const ytdPlayer = document.querySelector('ytd-player');
-              if (ytdPlayer && !ytdPlayer.classList.contains('__ytu_custom_mini')) {
-                style('__ytu_mini_style', miniPlayerCSS());
-                ytdPlayer.classList.add('__ytu_custom_mini');
-              }
-            }
-          }
-
-          const es = performance.getEntriesByType('resource');
-          const o = {total:0,audio:0,video:0,image:0,other:0,count:0};
-
-          for (const x of es) {
-            const n = x.transferSize || x.encodedBodySize || 0;
-            if (!n) continue;
-
-            const u = (x.name || '').toLowerCase();
-            o.total += n;
-            o.count++;
-
-            if (u.includes('googlevideo.com')) {
-              if (u.includes('mime=audio') || u.includes('audio/')) o.audio += n;
-              else if (u.includes('mime=video') || u.includes('video/')) o.video += n;
-              else o.other += n;
-            } else if (
-              u.includes('ytimg.com') ||
-              /\.(png|jpg|jpeg|webp|gif)(\?|$)/.test(u)
-            ) {
-              o.image += n;
-            } else {
-              o.other += n;
-            }
-          }
-
-          window.webkit?.messageHandlers?.traffic?.postMessage(o);
-          sendPlayerState();
-        } catch {}
-      }, 4000);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          startObserver();
+          scheduleDynamic(document);
+        }, { once: true });
+      } else {
+        startObserver();
+        scheduleDynamic(document);
+      }
     })();
     """#
 
@@ -799,8 +748,7 @@ struct WebView: UIViewRepresentable {
         private var key = ""
         private var pendingPauseWorkItem: DispatchWorkItem?
         private var isCompilingRules = false
-        private var lastAppliedThemeKey = ""
-
+        
         init(model: BrowserModel, settings: AppSettings) {
             self.model = model
             self.settings = settings

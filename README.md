@@ -263,3 +263,34 @@ v0.11までの機能は維持しています。
 - WKWebViewのネイティブ背景色もライト/ダークに同期
 - YouTube描画前後の白/黒フラッシュを低減
 - 強制テーマ補正の間隔を4秒へ緩和
+
+
+## v0.14 軽量化 / PiP・全画面修正
+
+### 大幅な軽量化
+v0.13までの定期的なDOM全体走査を廃止しました。
+
+- 4秒ごとのDOM全体チェックを削除
+- `MutationObserver` は「新しく追加された要素」がある時だけ使用
+- DOM処理は180msのスロットリング付き
+- 通信量計測を `performance.getEntriesByType()` の繰り返し走査から
+  `PerformanceObserver` による差分取得へ変更
+- 再生状態もvideo要素のイベントで更新
+- テーマ補正はページ遷移 / DOM更新時だけ実施
+
+### PiP
+- YouTubeプレイヤーに専用PiPボタンを追加
+- Webページ上の実際のクリックとしてPiPを開始
+- `webkitSetPresentationMode("picture-in-picture")` を優先
+- 標準 `requestPictureInPicture()` もフォールバック
+- 下バー「表示」メニューからも開始可能
+
+### 全画面
+- YouTubeプレイヤーに専用全画面ボタンを追加
+- `requestFullscreen()` を優先
+- iOS向け `webkitEnterFullscreen()` をフォールバック
+- 下バー「表示」メニューからも開始可能
+
+LiveContainer / iPadOS側がPiPや全画面API自体を制限している場合は、
+WebKit側の許可だけでは利用できないケースがあります。その場合でも
+プレイヤー上の専用ボタン経由を最優先で試せる構成にしています。

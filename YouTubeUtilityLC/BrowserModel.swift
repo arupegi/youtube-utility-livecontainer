@@ -82,6 +82,33 @@ final class BrowserModel: ObservableObject {
         """)
     }
 
+
+    func requestFullscreen() {
+        webView?.evaluateJavaScript("""
+        (() => {
+          const v = document.querySelector('video');
+          const player = document.querySelector('#movie_player') || v;
+          if (!v) return false;
+
+          try {
+            if (player && typeof player.requestFullscreen === 'function') {
+              player.requestFullscreen().catch(() => {});
+              return true;
+            }
+          } catch {}
+
+          try {
+            if (typeof v.webkitEnterFullscreen === 'function') {
+              v.webkitEnterFullscreen();
+              return true;
+            }
+          } catch {}
+
+          return false;
+        })()
+        """)
+    }
+
     func recoverAfterForeground() {
         AudioSessionManager.shared.reactivate()
 

@@ -184,6 +184,30 @@ struct ContentView: View {
                     )
                 }
 
+                Menu {
+                    if settings.allowPiP {
+                        Button {
+                            browser.requestPictureInPicture()
+                        } label: {
+                            Label("PiPを開始", systemImage: "pip.enter")
+                        }
+                    }
+
+                    if settings.allowFullscreen {
+                        Button {
+                            browser.requestFullscreen()
+                        } label: {
+                            Label("全画面表示", systemImage: "arrow.up.left.and.arrow.down.right")
+                        }
+                    }
+                } label: {
+                    BottomBarItem(
+                        systemName: "play.rectangle.on.rectangle",
+                        title: "表示",
+                        emphasized: false
+                    )
+                }
+
                 Button {
                     showSettings = true
                 } label: {
@@ -268,7 +292,7 @@ private struct BottomBarItem: View {
                 .lineLimit(1)
         }
         .foregroundStyle(emphasized ? settings.themeColor : Color.primary)
-        .frame(width: 64, height: 42)
+        .frame(width: 56, height: 42)
         .contentShape(Rectangle())
     }
 }
