@@ -16,8 +16,21 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
                 header
-                WebView(model: browser, settings: settings)
-                    .ignoresSafeArea(edges: .bottom)
+
+                ZStack(alignment: .top) {
+                    WebView(model: browser, settings: settings)
+                        .ignoresSafeArea(edges: .bottom)
+
+                    if browser.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .padding(.top, 8)
+                            .allowsHitTesting(false)
+                    }
+                }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

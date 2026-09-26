@@ -18,6 +18,7 @@ struct WebView: UIViewRepresentable {
         let uc = WKUserContentController()
         uc.add(context.coordinator, name: "traffic")
         uc.add(context.coordinator, name: "playerState")
+        uc.add(context.coordinator, name: "hybridMode")
 
         // Apply theme at document start to avoid YouTube painting a white page first.
         let bootstrap = Self.bootstrapScript(
@@ -281,20 +282,20 @@ struct WebView: UIViewRepresentable {
           `;
         }
 
-        if (cfg.hideComments) {
+        if (cfg.hideComments || cfg.minimalBandwidthMode) {
           css += `#comments,ytd-comments,
             ytd-item-section-renderer[target-id="comments-section"]{display:none!important;}`;
         }
 
-        if (cfg.hideChat) {
+        if (cfg.hideChat || cfg.minimalBandwidthMode) {
           css += `#chat,#chat-container,ytd-live-chat-frame{display:none!important;}`;
         }
 
-        if (cfg.hideRelated) {
+        if (cfg.hideRelated || cfg.minimalBandwidthMode) {
           css += `#related,ytd-watch-next-secondary-results-renderer{display:none!important;}`;
         }
 
-        if (cfg.hideThumbnails || cfg.textListMode || cfg.blockImages) {
+        if (cfg.hideThumbnails || cfg.textListMode || cfg.blockImages || cfg.minimalBandwidthMode) {
           css += `
             ytd-thumbnail,yt-image,img.yt-core-image,.yt-core-image,
             #thumbnail,#thumbnail-container,.thumbnail-container {
@@ -304,16 +305,16 @@ struct WebView: UIViewRepresentable {
           `;
         }
 
-        if (cfg.blockSeekPreview) {
+        if (cfg.blockSeekPreview || cfg.minimalBandwidthMode) {
           css += `.ytp-tooltip-bg,.ytp-tooltip-text-wrapper,
             .ytp-storyboard-framepreview,.ytp-preview{display:none!important;}`;
         }
 
-        if (cfg.audioOnly) {
-          css += `video{opacity:0!important;background:#000!important;}`;
+        if (cfg.audioOnly || cfg.minimalBandwidthMode) {
+          css += `video{opacity:0.001!important;background:#000!important;}`;
         }
 
-        if (cfg.hideShorts) {
+        if (cfg.hideShorts || cfg.minimalBandwidthMode) {
           css += `
             ytd-reel-shelf-renderer,
             ytd-rich-shelf-renderer[is-shorts],
@@ -349,7 +350,7 @@ struct WebView: UIViewRepresentable {
       }
 
       function listCSS() {
-        if (!cfg.textListMode) return '';
+        if (!(cfg.textListMode || cfg.minimalBandwidthMode)) return '';
 
         return `
           ytd-video-renderer,ytd-compact-video-renderer,
@@ -419,7 +420,207 @@ struct WebView: UIViewRepresentable {
           ytd-thumbnail-overlay-resume-playback-renderer {
             display:none!important;
           }
+
+          ${cfg.minimalBandwidthMode ? `
+            #metadata-line,
+            #description-text,
+            #description,
+            .metadata-snippet-container,
+            .inline-metadata-item,
+            ytd-badge-supported-renderer,
+            #overlays,
+            ytd-thumbnail-overlay-time-status-renderer,
+            ytd-thumbnail-overlay-now-playing-renderer,
+            ytd-thumbnail-overlay-toggle-button-renderer,
+            #channel-info,
+            #avatar-link,
+            #avatar,
+            yt-img-shadow,
+            ytd-channel-avatar-renderer,
+            ytd-avatar,
+            #byline-container span:not(:first-child) {
+              display:none!important;
+            }
+
+            #channel-name,
+            ytd-channel-name,
+            ytd-channel-name a,
+            #byline-container,
+            #byline-container a {
+              display:block!important;
+              font-size:12px!important;
+              line-height:1.35!important;
+              color:rgba(127,127,127,.95)!important;
+              margin:0!important;
+              padding:0!important;
+            }
+
+            #byline-container {
+              margin-top:2px!important;
+            }
+          ` : ''}
         `;
+      }
+
+
+      function applyLowBandwidthPlayback() {
+        const v = currentVideo();
+        const player = document.querySelector('#movie_player');
+        if (!v) return;
+
+        try {
+          v.preload = 'auto';
+          v.setAttribute('playsinline', '');
+          v.setAttribute('webkit-playsinline', '');
+        } catch {}
+
+        if (cfg.audioOnly) {
+          try {
+            if (player && typeof player.setPlaybackQualityRange === 'function') {
+              player.setPlaybackQualityRange('tiny', 'tiny');
+            } else if (player && typeof player.setPlaybackQuality === 'function') {
+              player.setPlaybackQuality('tiny');
+            }
+          } catch {}
+        }
+      }
+
+      function installSeekRecovery() {
+        const v = currentVideo();
+        if (!v || v.__ytuSeekRecoveryInstalled) return;
+
+        v.__ytuSeekRecoveryInstalled = true;
+        let seekTimer = null;
+
+        v.addEventListener('seeking', () => {
+          window.__ytuWasPlayingBeforeSeek = !v.paused && !v.ended;
+          if (seekTimer) clearTimeout(seekTimer);
+        }, { passive: true });
+
+        v.addEventListener('seeked', () => {
+          if (seekTimer) clearTimeout(seekTimer);
+
+          seekTimer = setTimeout(() => {
+            if (
+              window.__ytuWasPlayingBeforeSeek &&
+              v.paused &&
+              !v.ended
+            ) {
+              v.play().catch(() => {});
+            }
+          }, 700);
+        }, { passive: true });
+      }
+
+
+      let hybridState = {
+        aggressive: false,
+        waitingSince: 0,
+        stableSince: 0,
+        retryTimer: null
+      };
+
+      function postHybridMode(aggressive) {
+        if (!cfg.minimalBandwidthMode) aggressive = false;
+        if (hybridState.aggressive === aggressive) return;
+
+        hybridState.aggressive = aggressive;
+
+        try {
+          window.webkit?.messageHandlers?.hybridMode?.postMessage({
+            aggressive
+          });
+        } catch {}
+      }
+
+      function installHybridBandwidthController() {
+        const v = currentVideo();
+        if (!v || v.__ytuHybridInstalled) return;
+
+        v.__ytuHybridInstalled = true;
+
+        const markHealthy = () => {
+          if (!cfg.minimalBandwidthMode) {
+            postHybridMode(false);
+            return;
+          }
+
+          hybridState.waitingSince = 0;
+
+          if (!hybridState.stableSince) {
+            hybridState.stableSince = Date.now();
+          }
+
+          // After 12 seconds of stable playback, try the aggressive
+          // video-blocking mode again.
+          if (!hybridState.aggressive &&
+              Date.now() - hybridState.stableSince > 12000) {
+            postHybridMode(true);
+          }
+        };
+
+        const markWaiting = () => {
+          if (!cfg.minimalBandwidthMode) return;
+
+          if (!hybridState.waitingSince) {
+            hybridState.waitingSince = Date.now();
+          }
+
+          hybridState.stableSince = 0;
+
+          if (hybridState.retryTimer) {
+            clearTimeout(hybridState.retryTimer);
+          }
+
+          hybridState.retryTimer = setTimeout(() => {
+            const video = currentVideo();
+            if (!video || !cfg.minimalBandwidthMode) return;
+
+            // If waiting/stalled persists for ~2.2 sec, fall back to tiny video.
+            if (
+              hybridState.waitingSince &&
+              Date.now() - hybridState.waitingSince >= 2000
+            ) {
+              postHybridMode(false);
+
+              const player = document.querySelector('#movie_player');
+              try {
+                if (player && typeof player.setPlaybackQualityRange === 'function') {
+                  player.setPlaybackQualityRange('tiny', 'tiny');
+                } else if (player && typeof player.setPlaybackQuality === 'function') {
+                  player.setPlaybackQuality('tiny');
+                }
+              } catch {}
+
+              video.play().catch(() => {});
+            }
+          }, 2200);
+        };
+
+        v.addEventListener('playing', markHealthy, { passive: true });
+        v.addEventListener('canplay', markHealthy, { passive: true });
+        v.addEventListener('timeupdate', () => {
+          if (!v.paused && !v.seeking) markHealthy();
+        }, { passive: true });
+
+        v.addEventListener('waiting', markWaiting, { passive: true });
+        v.addEventListener('stalled', markWaiting, { passive: true });
+
+        v.addEventListener('seeking', () => {
+          // Seeking on a poor link is more reliable in fallback mode.
+          postHybridMode(false);
+          hybridState.waitingSince = Date.now();
+          hybridState.stableSince = 0;
+        }, { passive: true });
+
+        v.addEventListener('seeked', () => {
+          hybridState.waitingSince = 0;
+          hybridState.stableSince = Date.now();
+        }, { passive: true });
+
+        if (cfg.minimalBandwidthMode && !v.paused) {
+          hybridState.stableSince = Date.now();
+        }
       }
 
       function installPlayerButtons() {
@@ -532,7 +733,7 @@ struct WebView: UIViewRepresentable {
       }
 
       function hideMixFromNode(node) {
-        if (!cfg.hideMixes || !node || node.nodeType !== 1) return;
+        if (!(cfg.hideMixes || cfg.minimalBandwidthMode) || !node || node.nodeType !== 1) return;
 
         const candidates = [];
 
@@ -579,6 +780,9 @@ struct WebView: UIViewRepresentable {
       function applyDynamic(root = document) {
         applyTheme();
         bindVideo();
+        applyLowBandwidthPlayback();
+        installSeekRecovery();
+        installHybridBandwidthController();
         installPlayerButtons();
         hideMixFromNode(root);
       }
@@ -661,6 +865,12 @@ struct WebView: UIViewRepresentable {
         cfg = next || {};
         window.__ytuLastConfig = cfg;
 
+        if (!cfg.minimalBandwidthMode) {
+          hybridState.waitingSince = 0;
+          hybridState.stableSince = 0;
+          postHybridMode(false);
+        }
+
         style('__ytu_style', commonCSS() + listCSS());
 
         applyDynamic(document);
@@ -705,6 +915,7 @@ struct WebView: UIViewRepresentable {
         private var key = ""
         private var pendingPauseWorkItem: DispatchWorkItem?
         private var isCompilingRules = false
+        private var hybridAggressiveVideoBlock = false
         
         init(model: BrowserModel, settings: AppSettings) {
             self.model = model
@@ -712,6 +923,19 @@ struct WebView: UIViewRepresentable {
         }
 
         func userContentController(_ u: WKUserContentController, didReceive m: WKScriptMessage) {
+            if m.name == "hybridMode",
+               let d = m.body as? [String: Any],
+               let aggressive = d["aggressive"] as? Bool {
+                if aggressive != hybridAggressiveVideoBlock {
+                    hybridAggressiveVideoBlock = aggressive
+                    key = ""
+                    if let webView = model.webView {
+                        installRules(on: webView)
+                    }
+                }
+                return
+            }
+
             if m.name == "playerState",
                let d = m.body as? [String: Any] {
                 let playing = (d["playing"] as? Bool) ?? false
@@ -823,6 +1047,7 @@ struct WebView: UIViewRepresentable {
                 "blockImages": settings.blockImages,
                 "hideMixes": settings.hideMixes,
                 "hideShorts": settings.hideShorts,
+                "minimalBandwidthMode": settings.minimalBandwidthMode,
                 "syncYouTubeTheme": settings.syncYouTubeTheme,
                 "appearanceMode": settings.appearanceMode,
                 "allowPiP": settings.allowPiP,
@@ -836,14 +1061,20 @@ struct WebView: UIViewRepresentable {
         }
 
         func installRules(on w: WKWebView) {
+            let effectiveHideChat = settings.hideChat || settings.minimalBandwidthMode
+            let effectiveBlockImages = settings.blockImages || settings.textListMode || settings.hideThumbnails || settings.minimalBandwidthMode
+            let effectiveBlockSeekPreview = settings.blockSeekPreview || settings.minimalBandwidthMode
+
             let newKey = [
                 settings.adBlock ? "a1" : "a0",
                 settings.audioOnly ? "v1" : "v0",
-                settings.blockSeekPreview ? "s1" : "s0",
-                settings.hideChat ? "c1" : "c0",
-                settings.blockImages ? "i1" : "i0",
+                effectiveBlockSeekPreview ? "s1" : "s0",
+                effectiveHideChat ? "c1" : "c0",
+                effectiveBlockImages ? "i1" : "i0",
                 settings.textListMode ? "t1" : "t0",
-                settings.hideShorts ? "h1" : "h0"
+                settings.hideShorts ? "h1" : "h0",
+                settings.minimalBandwidthMode ? "m1" : "m0",
+                hybridAggressiveVideoBlock ? "hb1" : "hb0"
             ].joined(separator: "-")
 
             guard newKey != key, !isCompilingRules else { return }
@@ -867,17 +1098,17 @@ struct WebView: UIViewRepresentable {
                 block(".*youtube\\.com/.*(pagead|ptracking|ad_break|adunit|ad_).*", ["raw","script","image","media","document"])
             }
 
-            if settings.blockSeekPreview {
+            if effectiveBlockSeekPreview {
                 block(".*ytimg\\.com/sb/.*", ["image","raw"])
                 block(".*storyboard.*", ["image","raw"])
             }
 
-            if settings.hideChat {
+            if effectiveHideChat {
                 block(".*youtube\\.com/live_chat.*", ["document","raw"])
                 block(".*youtube\\.com/youtubei/v1/live_chat.*", ["raw"])
             }
 
-            if settings.blockImages || settings.textListMode || settings.hideThumbnails {
+            if effectiveBlockImages {
                 block(".*ytimg\\.com/.*", ["image"])
                 block(".*i\\.ytimg\\.com/.*", ["image"])
                 block(".*ggpht\\.com/.*", ["image"])
@@ -885,7 +1116,14 @@ struct WebView: UIViewRepresentable {
 
             // Do not block /shorts/ as a document. Hiding it in the DOM is safer:
             // blocking navigation at the WebKit rule level can leave a blank page.
-            if settings.audioOnly {
+            // v0.16: do not hard-block YouTube video segments in audio-only mode.
+            // Hard blocking can deadlock the MSE player on poor connections.
+
+            // v0.18 hybrid mode:
+            // While playback is healthy, minimal bandwidth mode may temporarily
+            // block video-only segments. If the player stalls, JavaScript asks
+            // Swift to disable this rule immediately without reloading the page.
+            if settings.minimalBandwidthMode && hybridAggressiveVideoBlock {
                 block(".*googlevideo\\.com/.*mime=video.*", ["media","raw"])
                 block(".*googlevideo\\.com/.*itag=(133|134|135|136|137|138|160|242|243|244|247|248|264|266|271|272|278|298|299|302|303|308|313|315).*", ["media","raw"])
             }
@@ -913,12 +1151,9 @@ struct WebView: UIViewRepresentable {
                     w.configuration.userContentController.removeAllContentRuleLists()
                     w.configuration.userContentController.add(list)
 
-                    // One controlled reload only when the current document has
-                    // already completed loading. If it is still navigating,
-                    // the rule list will apply naturally to subsequent requests.
-                    if !self.model.isLoading, w.url != nil {
-                        w.reload()
-                    }
+                    // Keep the current YouTube page alive. On slow connections,
+                    // forcing a top-level reload here causes a long stall.
+                    self.applyPageSettings(in: w)
                 }
             }
         }

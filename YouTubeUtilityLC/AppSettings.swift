@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 final class AppSettings: ObservableObject {
+    @AppStorage("minimalBandwidthMode") var minimalBandwidthMode = false
     @AppStorage("allowFullscreen") var allowFullscreen = true
     @AppStorage("allowPiP") var allowPiP = true
     @AppStorage("syncYouTubeTheme") var syncYouTubeTheme = true

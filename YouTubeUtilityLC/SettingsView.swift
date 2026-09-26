@@ -112,6 +112,19 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
 
+
+                    card("最小通信モード", icon: "antenna.radiowaves.left.and.right.slash") {
+                        settingToggle(
+                            "最小通信モード",
+                            detail: "タイトルとチャンネル名を中心に表示し、画像・コメント・チャット・関連・Shorts・Mix・シークプレビューなどを極力抑える",
+                            isOn: $settings.minimalBandwidthMode
+                        )
+
+                        Text("ONにすると、まず映像通信を強く抑え、再生が止まりそうなときだけ自動で tiny 映像へ戻すハイブリッド方式を使います。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     card("一覧表示", icon: "text.justify") {
                         settingToggle(
                             "テキスト一覧モード",
